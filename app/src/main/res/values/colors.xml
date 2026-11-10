@@ -1,0 +1,14 @@
+<resources>
+    <color name="brand_primary">#3157D5</color>
+    <color name="brand_dark">#203B9D</color>
+    <color name="screen_background">#F5F7FC</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_border">#E7EAF2</color>
+    <color name="divider">#E9ECF3</color>
+    <color name="text_primary">#182238</color>
+    <color name="text_secondary">#7A8499</color>
+    <color name="status_text">#247A57</color>
+    <color name="soft_blue">#EDF1FF</color>
+    <color name="soft_green">#EAF7F0</color>
+    <color name="soft_orange">#FFF3E8</color>
+</resources>

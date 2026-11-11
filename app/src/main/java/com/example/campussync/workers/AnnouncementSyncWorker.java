@@ -55,6 +55,7 @@ public class AnnouncementSyncWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        Log.d("CampusSync", "WORKER STARTED!");
         Context context = getApplicationContext();
         AnnouncementDatabase database = AnnouncementDatabase.getInstance(context);
         AnnouncementDao dao = database.announcementDao();
@@ -88,6 +89,11 @@ public class AnnouncementSyncWorker extends Worker {
                     }
                     if (!deletions.isEmpty()) dao.deleteByIds(deletions);
                 });
+
+                Log.d("CampusSync", "Downloaded announcements: " + upserts.size());
+                Log.d("CampusSync", "Deleted announcements: " + deletions.size());
+                Log.d("CampusSync", "Total saved announcements: " + dao.count());
+
                 saved += upserts.size();
                 removed += deletions.size();
 

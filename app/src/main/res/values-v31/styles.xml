@@ -1,0 +1,13 @@
+<resources>
+    <!-- Android 12+ always shows a system splash first; make it the same
+         blue with no icon so it blends into our animated splash. -->
+    <style name="SplashTheme" parent="AppTheme">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">#3A5FE0</item>
+        <item name="android:navigationBarColor">#1E3790</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowSplashScreenBackground">#3157D5</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+    </style>
+</resources>

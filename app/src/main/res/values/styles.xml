@@ -8,4 +8,13 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/screen_background</item>
     </style>
+
+    <!-- Splash: brand gradient from the first frame, no white flash -->
+    <style name="SplashTheme" parent="AppTheme">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">#3A5FE0</item>
+        <item name="android:navigationBarColor">#1E3790</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 </resources>

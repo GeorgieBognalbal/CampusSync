@@ -32,6 +32,8 @@ import androidx.lifecycle.Observer;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.example.campussync.ai.CloudAIAdapter;
+import com.example.campussync.ai.LocalNanoAIEngine;
 import com.example.campussync.data.local.AnnouncementDatabase;
 import com.example.campussync.data.local.AnnouncementEntity;
 import com.example.campussync.data.model.ChatMessage;
@@ -79,6 +81,8 @@ public class MainActivity extends Activity {
     private int currentTab = 0;
 
     private AnnouncementRepository announcementRepository;
+    private final LocalNanoAIEngine nanoAIEngine = new LocalNanoAIEngine();
+    private CloudAIAdapter cloudAdapter;
     private SharedPreferences prefs;
 
     private final ExecutorService executor =
@@ -95,6 +99,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         loadColors();
+        cloudAdapter = new CloudAIAdapter(this);
 
         contentContainer = findViewById(R.id.contentContainer);
         contentScroll = findViewById(R.id.contentScroll);
@@ -734,9 +739,11 @@ public class MainActivity extends Activity {
     // =========================
 
     private static final String[] SUGGESTIONS = {
-            "May pasok ba?",
-            "Midterm schedule",
-            "Scholarship requirements"
+            "May pasok ba bukas sa LSPU?",
+            "Kailan deadline ng TDP scholarship?",
+            "Midterm exam schedule",
+            "Hack4Success intramurals",
+            "Unknown question"
     };
 
     /** Kept across tab switches so the conversation isn't lost. */
@@ -890,37 +897,28 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Runs on the background executor: searches saved posts and forms a reply. */
+    /** Runs on the background executor: evaluates query using LocalNanoAIEngine Edge-First RAG with Cloud Fallback. */
     private ChatMessage buildAnswer(String question) {
-        LinkedHashMap<String, AnnouncementEntity> found = new LinkedHashMap<>();
-        for (String keyword : keywordsFor(question)) {
-            for (AnnouncementEntity a : announcementRepository.search(keyword)) {
-                found.put(a.facebookPostId, a);
-            }
-            if (found.size() >= 3) break;
-        }
-
-        if (found.isEmpty()) {
-            return new ChatMessage(
-                    "Pasensya, wala akong nakitang announcement tungkol diyan sa mga naka-save na posts. Subukan ang ibang keyword, o i-check ang official page para sa pinakabagong update.",
-                    ChatMessage.Sender.BOT);
-        }
+        List<AnnouncementEntity> allPosts = announcementRepository.getAll();
+        long start = System.nanoTime();
+        LocalNanoAIEngine.NanoAIResult result =
+                nanoAIEngine.processHybridQuery(question, allPosts, cloudAdapter);
+        long latencyMs = (System.nanoTime() - start) / 1000000;
 
         List<ChatMessage.Source> sources = new ArrayList<>();
-        int i = 0;
-        for (AnnouncementEntity a : found.values()) {
-            if (i++ == 3) break;
-            sources.add(new ChatMessage.Source(a.pageName, a.message, a.permalink));
+        if (result.primarySource != null) {
+            sources.add(new ChatMessage.Source(
+                    result.primarySource.pageName,
+                    result.primarySource.message,
+                    result.primarySource.permalink
+            ));
         }
 
-        AnnouncementEntity top = found.values().iterator().next();
-        String reply = "Ito ang nakita ko mula sa " + top.pageName + ":\n\n"
-                + shorten(top.message, 220)
-                + (sources.size() > 1
-                    ? "\n\nMay " + (sources.size() - 1) + " pang related na post sa ibaba."
-                    : "");
+        String tag = result.isOfflineAnswer
+                ? "⚡ [" + latencyMs + "ms • Local Nano AI]\n"
+                : "☁️ [" + latencyMs + "ms • Cloud Fallback]\n";
 
-        return new ChatMessage(reply, ChatMessage.Sender.BOT, sources);
+        return new ChatMessage(tag + result.answer, ChatMessage.Sender.BOT, sources);
     }
 
     /** Maps common Taglish questions to keywords the local search understands. */

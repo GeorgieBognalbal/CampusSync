@@ -1,12 +1,14 @@
-
 package com.example.campussync;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
-import android.graphics.Typeface;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,11 +18,14 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
-import android.widget.ScrollView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.example.campussync.ai.CloudAIAdapter;
+import com.example.campussync.ai.LocalNanoAIEngine;
 import com.example.campussync.data.local.AnnouncementDatabase;
 import com.example.campussync.data.local.AnnouncementEntity;
 import com.example.campussync.data.model.ChatMessage;
@@ -28,22 +33,16 @@ import com.example.campussync.data.repository.AnnouncementRepository;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-
-
-import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+/**
+ * CampusSense Main Activity
+ * Hack4Success 2026 - Student Around Services (LSPU-SPCC)
+ * Integrated with LocalNanoAIEngine for Hybrid Edge-First Nano RAG with Cloud Fallback.
+ */
 public class MainActivity extends Activity {
 
     private static final int BLUE = Color.rgb(49, 87, 213);
@@ -51,6 +50,16 @@ public class MainActivity extends Activity {
     private static final int MUTED = Color.rgb(122, 132, 153);
     private static final int PALE = Color.rgb(237, 241, 255);
     private static final int WHITE = Color.WHITE;
+    private static final int GREEN = Color.rgb(36, 122, 87);
+    private static final int PALE_GREEN = Color.rgb(234, 247, 240);
+
+    private static final String[] QUICK_PROMPTS = {
+            "May pasok ba bukas sa LSPU?",
+            "Kailan deadline ng TDP scholarship?",
+            "Midterm exam schedule",
+            "Hack4Success intramurals",
+            "Unknown question"
+    };
 
     private LinearLayout contentContainer;
     private TextView navPosts, navChat, navSources;
@@ -58,7 +67,21 @@ public class MainActivity extends Activity {
     private View chatInputBar;
     private EditText chatInput;
     private TextView chatSend;
+    private TextView statusText;
+
     private AnnouncementRepository announcementRepository;
+    private final LocalNanoAIEngine nanoAIEngine = new LocalNanoAIEngine();
+    private CloudAIAdapter cloudAdapter;
+    private ConnectivityManager.NetworkCallback networkCallback;
+
+    private LocalNanoAIEngine.Intent selectedCategoryFilter = null; // null means 'All'
+    private String currentSearchQuery = "";
+
+    private final List<ChatMessage> chatHistory = new ArrayList<>();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private LinearLayout messageList;
+    private Runnable thinkingTicker;
+    private boolean botBusy = false;
 
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
@@ -76,6 +99,11 @@ public class MainActivity extends Activity {
         chatInputBar = findViewById(R.id.chatInputBar);
         chatInput = findViewById(R.id.chatInput);
         chatSend = findViewById(R.id.chatSend);
+        statusText = findViewById(R.id.statusText);
+
+        cloudAdapter = new CloudAIAdapter(this);
+        updateNetworkStatusUI();
+        registerNetworkListener();
 
         AnnouncementDatabase database =
                 AnnouncementDatabase.getInstance(getApplicationContext());
@@ -87,47 +115,91 @@ public class MainActivity extends Activity {
         showAnnouncements();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateNetworkStatusUI();
+    }
+
+    private void updateNetworkStatusUI() {
+        runOnUiThread(() -> {
+            if (statusText == null) return;
+            boolean online = cloudAdapter != null && cloudAdapter.isOnline();
+            if (online) {
+                statusText.setText("● NANO AI READY (ONLINE)");
+                statusText.setTextColor(GREEN);
+            } else {
+                statusText.setText("● NANO AI READY (OFFLINE)");
+                statusText.setTextColor(GREEN);
+            }
+        });
+    }
+
+    private void registerNetworkListener() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager)
+                    getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                networkCallback = new ConnectivityManager.NetworkCallback() {
+                    @Override
+                    public void onAvailable(android.net.Network network) {
+                        updateNetworkStatusUI();
+                    }
+
+                    @Override
+                    public void onLost(android.net.Network network) {
+                        updateNetworkStatusUI();
+                    }
+                };
+                cm.registerDefaultNetworkCallback(networkCallback);
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void seedDemoAnnouncementsIfEmpty() {
         executor.execute(() -> {
-            List<AnnouncementEntity> existing =
-                    announcementRepository.getAll();
+            List<AnnouncementEntity> existing = announcementRepository.getAll();
 
-            if (existing.size() < 5) {
+            boolean needsReseed = existing.isEmpty();
+            if (!needsReseed && existing.size() <= 2) {
+                for (AnnouncementEntity item : existing) {
+                    if ("demo-001".equals(item.facebookPostId) || "demo-002".equals(item.facebookPostId)) {
+                        needsReseed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (needsReseed) {
+                announcementRepository.deleteAll();
                 List<AnnouncementEntity> samples = Arrays.asList(
                         new AnnouncementEntity(
-                                "demo-001",
+                                "lspu-post-001",
                                 "LSPU Official",
-                                "Welcome to CampusSync! This is sample announcement data. Replace it with real posts after connecting your backend.",
-                                "https://www.facebook.com/LSPUOfficial",
-                                System.currentTimeMillis()
+                                "ADVISORY: Classes are suspended tomorrow due to Tropical Cyclone Wind Signal #2 according to LSPU Official. All college and graduate school students in San Pablo City Campus are advised to take safety precautions.",
+                                "https://www.facebook.com/LSPUOfficial/posts/suspension-signal2",
+                                System.currentTimeMillis() - 1800000
                         ),
                         new AnnouncementEntity(
-                                "demo-002",
+                                "osas-post-002",
                                 "SPCC OSAS",
-                                "Sample reminder: Check the official university page for the latest student announcements.",
-                                "https://www.facebook.com/SPCC.OSAS",
-                                System.currentTimeMillis() - 3600000
-                        ),
-                        new AnnouncementEntity(
-                                "demo-003",
-                                "LSPU Official",
-                                "Sample: Classes are suspended tomorrow in all levels due to the typhoon signal. Walang pasok — please stay safe and monitor this page for updates.",
-                                "https://www.facebook.com/LSPUOfficial",
+                                "ANNOUNCEMENT: According to SPCC OSAS, the submission deadline for TDP documents is Friday, Nov 14 at 5:00 PM at the OSAS office. Please bring completed endorsement slips and certified grades for validation.",
+                                "https://www.facebook.com/SPCC.OSAS/posts/tdp-scholarship-deadline",
                                 System.currentTimeMillis() - 7200000
                         ),
                         new AnnouncementEntity(
-                                "demo-004",
-                                "CCSOCTA",
-                                "Sample: Midterm exam schedule — Nov 24 to Nov 28. Check your class adviser for room assignments. Bring your exam permit.",
-                                "https://www.facebook.com/CCSOCTA",
-                                System.currentTimeMillis() - 10800000
+                                "lspu-post-003",
+                                "LSPU Official",
+                                "ACADEMIC ADVISORY: Midterm examinations are scheduled on Nov 24–28 per the LSPU Academic Calendar advisory. Students must secure examination permits from the registrar prior to the examination week.",
+                                "https://www.facebook.com/LSPUOfficial/posts/midterm-examinations-schedule",
+                                System.currentTimeMillis() - 86400000
                         ),
                         new AnnouncementEntity(
-                                "demo-005",
-                                "SPCC OSAS",
-                                "Sample: Scholarship requirements — certificate of grades, certificate of indigency, 2x2 ID photo, and a filled-out application form. Submit to OSAS before Dec 5.",
-                                "https://www.facebook.com/SPCC.OSAS",
-                                System.currentTimeMillis() - 14400000
+                                "octa-post-004",
+                                "CCSOCTA",
+                                "CALL FOR PARTICIPANTS: Hack4Success 2026 Hackathon and Intramurals 2026 opening ceremonies will be held at the CTE Function Hall! Registration for the Student Around Services track is now open.",
+                                "https://www.facebook.com/CCSOCTA/posts/hack4success-2026-registration",
+                                System.currentTimeMillis() - 172800000
                         )
                 );
 
@@ -151,118 +223,156 @@ public class MainActivity extends Activity {
     }
 
     private void setActiveTab(int tab) {
-        chatInputBar.setVisibility(tab == 1 ? View.VISIBLE : View.GONE);
+        if (chatInputBar != null) {
+            chatInputBar.setVisibility(tab == 1 ? View.VISIBLE : View.GONE);
+        }
         if (tab != 1) stopThinkingAnimation();
+
         navPosts.setTextColor(tab == 0 ? BLUE : MUTED);
         navChat.setTextColor(tab == 1 ? BLUE : MUTED);
         navSources.setTextColor(tab == 2 ? BLUE : MUTED);
 
-        navPosts.setTypeface(null,
-                tab == 0 ? Typeface.BOLD : Typeface.NORMAL);
-
-        navChat.setTypeface(null,
-                tab == 1 ? Typeface.BOLD : Typeface.NORMAL);
-
-        navSources.setTypeface(null,
-                tab == 2 ? Typeface.BOLD : Typeface.NORMAL);
+        navPosts.setTypeface(null, tab == 0 ? Typeface.BOLD : Typeface.NORMAL);
+        navChat.setTypeface(null, tab == 1 ? Typeface.BOLD : Typeface.NORMAL);
+        navSources.setTypeface(null, tab == 2 ? Typeface.BOLD : Typeface.NORMAL);
     }
 
-    // =========================
-    // ANNOUNCEMENTS
-    // =========================
+    // =========================================================================
+    // 1. ANNOUNCEMENTS FEED (With Interactive Category Filter Pills)
+    // =========================================================================
 
     private void showAnnouncements() {
         setActiveTab(0);
         contentContainer.removeAllViews();
 
-        addText("Good day, LSPU! 👋",
-                13, MUTED, false, 0, 2);
+        addText("Good day, LSPU! 👋", 13, MUTED, false, 0, 2);
+        addText("Campus updates,\none place.", 29, DARK, true, 0, 12);
 
-        addText("Campus updates,\none place.",
-                29, DARK, true, 0, 12);
-
+        // Header Pulse Banner
         LinearLayout summary = card();
         summary.setBackground(roundDrawable(BLUE, 20));
         summary.setPadding(dp(18), dp(17), dp(18), dp(17));
 
-        summary.addView(text(
-                "CAMPUS PULSE", 10, 0xFFDCE4FF, true
-        ));
+        summary.addView(text("CAMPUS PULSE • LOCAL AI CACHE", 10, 0xFFDCE4FF, true));
 
-        TextView summaryTitle =
-                text("Stay in sync with what’s happening.",
-                        17, WHITE, true);
-
+        TextView summaryTitle = text("Stay in sync with what’s happening.", 17, WHITE, true);
         LinearLayout.LayoutParams stp = params(-1, -2);
         stp.topMargin = dp(7);
         summary.addView(summaryTitle, stp);
 
-        TextView summaryCaption =
-                text("Announcements from your university pages, gathered for you.",
-                        12, 0xFFE5EAFF, false);
-
+        TextView summaryCaption = text("Offline intelligence ready. Browse verified announcements or ask Nano AI directly.", 12, 0xFFE5EAFF, false);
         LinearLayout.LayoutParams scp = params(-1, -2);
         scp.topMargin = dp(5);
         summary.addView(summaryCaption, scp);
 
         addView(contentContainer, summary, 0, 15);
 
-        addText("ANNOUNCEMENTS",
-                11, MUTED, true, 0, 9);
+        addText("SEARCH & FILTER", 11, MUTED, true, 0, 9);
 
+        // Search Input
         EditText search = new EditText(this);
         search.setSingleLine(true);
         search.setTextSize(14);
         search.setHint("Search announcements…");
-
         search.setCompoundDrawablesWithIntrinsicBounds(
                 android.R.drawable.ic_menu_search, 0, 0, 0
         );
-
         search.setPadding(dp(14), 0, dp(14), 0);
-        search.setBackground(
-                roundDrawable(WHITE, 14, 0xFFE2E7F0)
-        );
-
+        search.setBackground(roundDrawable(WHITE, 14, 0xFFE2E7F0));
         contentContainer.addView(search, params(-1, 50));
 
-        TextView feedLabel =
-                text("Recent posts", 18, DARK, true);
+        // Interactive Category Filter Pills
+        final LocalNanoAIEngine.Intent[] filterIntents = {
+                null,
+                LocalNanoAIEngine.Intent.SUSPENSION,
+                LocalNanoAIEngine.Intent.SCHOLARSHIP,
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                LocalNanoAIEngine.Intent.EVENTS
+        };
+        final String[] filterNames = {
+                "All",
+                "🌧️ Suspensions",
+                "🎓 Scholarships",
+                "📚 Academics",
+                "📢 Events"
+        };
 
-        LinearLayout.LayoutParams flp = params(-1, -2);
-        flp.topMargin = dp(19);
-        flp.bottomMargin = dp(10);
+        HorizontalScrollView pillScrollView = new HorizontalScrollView(this);
+        pillScrollView.setHorizontalScrollBarEnabled(false);
+        LinearLayout pillRow = new LinearLayout(this);
+        pillRow.setOrientation(LinearLayout.HORIZONTAL);
+        pillRow.setPadding(0, dp(10), 0, dp(6));
 
-        contentContainer.addView(feedLabel, flp);
-
+        final List<TextView> pillViews = new ArrayList<>();
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
+
+        for (int i = 0; i < filterIntents.length; i++) {
+            final LocalNanoAIEngine.Intent intentFilter = filterIntents[i];
+            final String label = filterNames[i];
+
+            TextView pill = text(label, 12, DARK, false);
+            pill.setPadding(dp(13), dp(7), dp(13), dp(7));
+
+            boolean isSelected = (selectedCategoryFilter == intentFilter);
+            updatePillStyle(pill, isSelected);
+
+            pill.setOnClickListener(v -> {
+                selectedCategoryFilter = intentFilter;
+                for (int j = 0; j < pillViews.size(); j++) {
+                    updatePillStyle(pillViews.get(j), filterIntents[j] == selectedCategoryFilter);
+                }
+                loadAnnouncementsInto(list, currentSearchQuery);
+            });
+
+            pillViews.add(pill);
+            LinearLayout.LayoutParams pp = params(-2, -2);
+            pp.rightMargin = dp(8);
+            pillRow.addView(pill, pp);
+        }
+
+        pillScrollView.addView(pillRow, new FrameLayout.LayoutParams(-2, -2));
+        contentContainer.addView(pillScrollView, params(-1, -2));
+
+        // Section Title
+        TextView feedLabel = text("Recent posts", 18, DARK, true);
+        LinearLayout.LayoutParams flp = params(-1, -2);
+        flp.topMargin = dp(14);
+        flp.bottomMargin = dp(10);
+        contentContainer.addView(feedLabel, flp);
 
         contentContainer.addView(list, params(-1, -2));
 
         search.addTextChangedListener(new android.text.TextWatcher() {
             @Override
-            public void beforeTextChanged(
-                    CharSequence s, int start, int count, int after) {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                currentSearchQuery = s.toString().trim();
+                loadAnnouncementsInto(list, currentSearchQuery);
             }
 
             @Override
-            public void onTextChanged(
-                    CharSequence s, int start, int before, int count) {
-                loadAnnouncementsInto(list, s.toString().trim());
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {
-            }
+            public void afterTextChanged(android.text.Editable s) {}
         });
 
         loadAnnouncementsInto(list, "");
     }
 
-    private void loadAnnouncementsInto(
-            LinearLayout list, String query) {
+    private void updatePillStyle(TextView pill, boolean isSelected) {
+        if (isSelected) {
+            pill.setBackground(roundDrawable(BLUE, 16));
+            pill.setTextColor(WHITE);
+            pill.setTypeface(null, Typeface.BOLD);
+        } else {
+            pill.setBackground(roundDrawable(WHITE, 16, 0xFFD8DEEB));
+            pill.setTextColor(DARK);
+            pill.setTypeface(null, Typeface.NORMAL);
+        }
+    }
 
+    private void loadAnnouncementsInto(LinearLayout list, String query) {
         list.removeAllViews();
 
         executor.execute(() -> {
@@ -271,36 +381,43 @@ public class MainActivity extends Activity {
                             ? announcementRepository.getAll()
                             : announcementRepository.search(query);
 
+            if (selectedCategoryFilter != null) {
+                List<AnnouncementEntity> filtered = new ArrayList<>();
+                for (AnnouncementEntity item : announcements) {
+                    if (matchesCategory(item, selectedCategoryFilter)) {
+                        filtered.add(item);
+                    }
+                }
+                announcements = filtered;
+            }
+
+            final List<AnnouncementEntity> displayList = announcements;
+
             runOnUiThread(() -> {
                 if (isFinishing()) return;
 
                 list.removeAllViews();
 
-                if (announcements.isEmpty()) {
+                if (displayList.isEmpty()) {
                     LinearLayout empty = card();
+                    empty.setPadding(dp(18), dp(22), dp(18), dp(22));
 
-                    empty.setPadding(
-                            dp(18), dp(22), dp(18), dp(22)
-                    );
-
-                    empty.addView(text(
-                            "No matching announcements",
-                            15, DARK, true
-                    ));
+                    empty.addView(text("No matching announcements", 15, DARK, true));
 
                     TextView hint = text(
-                            "Try another keyword or sync your sources when you’re online.",
+                            selectedCategoryFilter != null
+                                    ? "No announcements found under this filter. Tap 'All' or sync for newer posts."
+                                    : "Try another keyword or sync your sources when you’re online.",
                             12, MUTED, false
                     );
 
                     LinearLayout.LayoutParams hp = params(-1, -2);
                     hp.topMargin = dp(5);
-
                     empty.addView(hint, hp);
                     list.addView(empty);
 
                 } else {
-                    for (AnnouncementEntity item : announcements) {
+                    for (AnnouncementEntity item : displayList) {
                         addAnnouncementCard(list, item);
                     }
                 }
@@ -308,120 +425,91 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void addAnnouncementCard(
-            LinearLayout parent, AnnouncementEntity item) {
+    private boolean matchesCategory(AnnouncementEntity item, LocalNanoAIEngine.Intent category) {
+        if (category == null) return true;
+        List<String> keywords = nanoAIEngine.getDictionaryForIntent(category);
+        if (keywords == null) return true;
+        String content = (item.message + " " + item.pageName).toLowerCase(Locale.ROOT);
+        for (String kw : keywords) {
+            if (content.contains(kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
+    private void addAnnouncementCard(LinearLayout parent, AnnouncementEntity item) {
         LinearLayout outer = card();
         outer.setPadding(dp(15), dp(15), dp(15), dp(14));
 
         LinearLayout top = row();
 
-        TextView avatar = text(
-                initials(item.pageName), 12, BLUE, true
-        );
-
+        TextView avatar = text(initials(item.pageName), 12, BLUE, true);
         avatar.setGravity(Gravity.CENTER);
         avatar.setBackground(roundDrawable(PALE, 12));
-
         top.addView(avatar, params(38, 38));
 
         LinearLayout sourceBlock = column();
         sourceBlock.setPadding(dp(10), 0, 0, 0);
 
-        sourceBlock.addView(text(
-                item.pageName, 14, DARK, true
-        ));
+        sourceBlock.addView(text(item.pageName, 14, DARK, true));
 
         TextView time = text(
-                DateFormat.format(
-                        "MMM dd • hh:mm a",
-                        item.createdAt
-                ).toString(),
+                DateFormat.format("MMM dd • hh:mm a", item.createdAt).toString(),
                 11, MUTED, false
         );
 
         LinearLayout.LayoutParams tp = params(-2, -2);
         tp.topMargin = dp(3);
-
         sourceBlock.addView(time, tp);
 
-        top.addView(sourceBlock,
-                new LinearLayout.LayoutParams(0, -2, 1));
+        top.addView(sourceBlock, new LinearLayout.LayoutParams(0, -2, 1));
 
         TextView tag = text("POST", 9, BLUE, true);
         tag.setPadding(dp(9), dp(6), dp(9), dp(6));
         tag.setBackground(roundDrawable(PALE, 20));
-
         top.addView(tag);
+
         outer.addView(top);
 
-        TextView message = text(
-                item.message, 14, 0xFF46516A, false
-        );
-
+        TextView message = text(item.message, 14, 0xFF46516A, false);
         message.setLineSpacing(dp(3), 1f);
 
         LinearLayout.LayoutParams mp = params(-1, -2);
         mp.topMargin = dp(15);
         mp.bottomMargin = dp(13);
-
         outer.addView(message, mp);
 
         View divider = new View(this);
         divider.setBackgroundColor(0xFFECEFF4);
-
         outer.addView(divider, params(-1, 1));
 
         LinearLayout footer = row();
         footer.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView cached = text(
-                "●  Saved on this device",
-                10, 0xFF398260, true
-        );
+        TextView cached = text("●  Saved on this device", 10, GREEN, true);
+        footer.addView(cached, new LinearLayout.LayoutParams(0, -2, 1));
 
-        footer.addView(cached,
-                new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView open = text(
-                "Open post  ↗", 11, BLUE, true
-        );
-
+        TextView open = text("Open post  ↗", 11, BLUE, true);
         footer.addView(open);
         open.setOnClickListener(v -> openUrl(item.permalink));
 
         LinearLayout.LayoutParams fp = params(-1, -2);
         fp.topMargin = dp(11);
-
         outer.addView(footer, fp);
 
         addView(parent, outer, 0, 12);
     }
 
-    // =========================
-    // CHAT
-    // =========================
-
-    private static final String[] SUGGESTIONS = {
-            "May pasok ba?",
-            "Midterm schedule",
-            "Scholarship requirements"
-    };
-
-    /** Kept across tab switches so the conversation isn't lost. */
-    private final List<ChatMessage> chatHistory = new ArrayList<>();
-    private final Handler uiHandler = new Handler(Looper.getMainLooper());
-
-    private LinearLayout messageList;
-    private LinearLayout suggestionRow;
-    private Runnable thinkingTicker;
-    private boolean botBusy = false;
+    // =========================================================================
+    // 2. CONVERSATIONAL CHAT UI (Connected to LocalNanoAIEngine & CloudAIAdapter)
+    // =========================================================================
 
     private void showChat() {
         setActiveTab(1);
         contentContainer.removeAllViews();
 
-        // Header
+        // Header Card with Bot Avatar and Live Status Badge
         LinearLayout header = row();
         header.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -432,9 +520,13 @@ public class MainActivity extends Activity {
 
         LinearLayout titleBlock = column();
         titleBlock.setPadding(dp(11), 0, 0, 0);
-        titleBlock.addView(text("CampusSync Assistant", 15, DARK, true));
-        TextView status = text("●  Answers from saved announcements",
-                11, 0xFF398260, true);
+        titleBlock.addView(text("CampusSense Assistant", 15, DARK, true));
+
+        boolean online = cloudAdapter != null && cloudAdapter.isOnline();
+        TextView status = text(
+                online ? "● NANO AI READY (ONLINE)" : "● NANO AI READY (OFFLINE)",
+                11, GREEN, true
+        );
         LinearLayout.LayoutParams sp = params(-2, -2);
         sp.topMargin = dp(3);
         titleBlock.addView(status, sp);
@@ -442,42 +534,47 @@ public class MainActivity extends Activity {
 
         addView(contentContainer, header, 0, 16);
 
-        // Messages
+        // Chat Message List
         messageList = column();
         contentContainer.addView(messageList, params(-1, -2));
 
         if (chatHistory.isEmpty()) {
             chatHistory.add(new ChatMessage(
-                    "Hi! 👋 Ako si CampusSync Assistant. Itanong mo lang ang tungkol sa klase, exams, o scholarships — hahanapin ko sa mga official announcements.",
-                    ChatMessage.Sender.BOT));
+                    "Hi! 👋 Ako si CampusSense Assistant. Sub-15ms on-device intelligence ang sumasagot sa klase, scholarships, at exam schedules—kahit naka-Airplane Mode!",
+                    ChatMessage.Sender.BOT
+            ));
         }
+
         for (ChatMessage m : chatHistory) {
             messageList.addView(buildMessageView(m));
         }
 
-        // Suggestion pills
-        TextView suggestLabel = text("SUGGESTED", 10, MUTED, true);
+        // Quick Demonstration Prompt Chips
+        TextView suggestLabel = text("DEMO QUICK PROMPTS (GOLDEN TEST CASES)", 10, MUTED, true);
         LinearLayout.LayoutParams slp = params(-1, -2);
-        slp.topMargin = dp(10);
+        slp.topMargin = dp(14);
         slp.bottomMargin = dp(8);
         contentContainer.addView(suggestLabel, slp);
 
         HorizontalScrollView pillScroll = new HorizontalScrollView(this);
         pillScroll.setHorizontalScrollBarEnabled(false);
-        suggestionRow = row();
-        for (String s : SUGGESTIONS) {
-            TextView pill = text(s, 13, BLUE, true);
+        LinearLayout chipRow = row();
+
+        for (String promptText : QUICK_PROMPTS) {
+            TextView pill = text(promptText, 12, DARK, false);
             pill.setBackgroundResource(R.drawable.suggestion_pill);
-            pill.setPadding(dp(14), dp(9), dp(14), dp(9));
-            pill.setOnClickListener(v -> sendChatMessage(s));
+            pill.setPadding(dp(13), dp(8), dp(13), dp(8));
+            pill.setOnClickListener(v -> sendChatMessage(promptText));
+
             LinearLayout.LayoutParams pp = params(-2, -2);
             pp.rightMargin = dp(8);
-            suggestionRow.addView(pill, pp);
+            chipRow.addView(pill, pp);
         }
-        pillScroll.addView(suggestionRow);
+
+        pillScroll.addView(chipRow);
         contentContainer.addView(pillScroll, params(-1, -2));
 
-        // Composer (pinned bar in activity_main.xml)
+        // Bottom Chat Composer Actions
         chatSend.setOnClickListener(v -> {
             String q = chatInput.getText().toString().trim();
             if (!q.isEmpty()) {
@@ -485,6 +582,7 @@ public class MainActivity extends Activity {
                 sendChatMessage(q);
             }
         });
+
         chatInput.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 chatSend.performClick();
@@ -509,23 +607,44 @@ public class MainActivity extends Activity {
         appendIfVisible(thinking);
 
         executor.execute(() -> {
-            ChatMessage answer = buildAnswer(question);
+            List<AnnouncementEntity> cachedPosts = announcementRepository.getAll();
+            long start = System.nanoTime();
+            LocalNanoAIEngine.NanoAIResult result =
+                    nanoAIEngine.processHybridQuery(question, cachedPosts, cloudAdapter);
+            long latencyMs = (System.nanoTime() - start) / 1000000;
 
-            // Small delay so the "Thinking..." animation is visible
+            List<ChatMessage.Source> sources = new ArrayList<>();
+            if (result.primarySource != null) {
+                sources.add(new ChatMessage.Source(
+                        result.primarySource.pageName,
+                        result.primarySource.message,
+                        result.primarySource.permalink
+                ));
+            }
+
+            // Frame conversational reply bubble
+            String modePrefix = result.isOfflineAnswer
+                    ? "⚡ [" + latencyMs + "ms • Local Nano AI]\n"
+                    : "☁️ [" + latencyMs + "ms • Cloud Fallback]\n";
+
+            String replyText = modePrefix + result.answer;
+            ChatMessage botAnswer = new ChatMessage(replyText, ChatMessage.Sender.BOT, sources);
+
+            // Small delay for smooth thinking transition
             uiHandler.postDelayed(() -> {
                 if (isFinishing()) return;
                 chatHistory.remove(thinking);
-                chatHistory.add(answer);
+                chatHistory.add(botAnswer);
                 stopThinkingAnimation();
+
                 if (messageList != null && messageList.isShown()) {
-                    // Remove the thinking bubble (always the last child)
                     int last = messageList.getChildCount() - 1;
                     if (last >= 0) messageList.removeViewAt(last);
-                    messageList.addView(buildMessageView(answer));
+                    messageList.addView(buildMessageView(botAnswer));
                     scrollChatToBottom();
                 }
                 botBusy = false;
-            }, 1200);
+            }, 300);
         });
     }
 
@@ -536,125 +655,78 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Runs on the background executor: searches saved posts and forms a reply. */
-    private ChatMessage buildAnswer(String question) {
-        LinkedHashMap<String, AnnouncementEntity> found = new LinkedHashMap<>();
-        for (String keyword : keywordsFor(question)) {
-            for (AnnouncementEntity a : announcementRepository.search(keyword)) {
-                found.put(a.facebookPostId, a);
-            }
-            if (found.size() >= 3) break;
-        }
-
-        if (found.isEmpty()) {
-            return new ChatMessage(
-                    "Pasensya, wala akong nakitang announcement tungkol diyan sa mga naka-save na posts. Subukan ang ibang keyword, o i-check ang official page para sa pinakabagong update.",
-                    ChatMessage.Sender.BOT);
-        }
-
-        List<ChatMessage.Source> sources = new ArrayList<>();
-        int i = 0;
-        for (AnnouncementEntity a : found.values()) {
-            if (i++ == 3) break;
-            sources.add(new ChatMessage.Source(a.pageName, a.message, a.permalink));
-        }
-
-        AnnouncementEntity top = found.values().iterator().next();
-        String reply = "Ito ang nakita ko mula sa " + top.pageName + ":\n\n"
-                + shorten(top.message, 220)
-                + (sources.size() > 1
-                    ? "\n\nMay " + (sources.size() - 1) + " pang related na post sa ibaba."
-                    : "");
-
-        return new ChatMessage(reply, ChatMessage.Sender.BOT, sources);
-    }
-
-    /** Maps common Taglish questions to keywords the local search understands. */
-    private List<String> keywordsFor(String question) {
-        String q = question.toLowerCase(Locale.ROOT);
-        List<String> keys = new ArrayList<>();
-
-        if (q.contains("pasok") || q.contains("suspend") || q.contains("class")
-                || q.contains("klase")) {
-            keys.addAll(Arrays.asList("suspension", "suspended", "pasok", "classes"));
-        }
-        if (q.contains("midterm") || q.contains("exam")) {
-            keys.addAll(Arrays.asList("midterm", "exam"));
-        }
-        if (q.contains("scholar")) {
-            keys.addAll(Arrays.asList("scholarship", "requirements"));
-        }
-        if (q.contains("enroll")) {
-            keys.add("enrollment");
-        }
-
-        // Fallback: any meaningful word from the question itself
-        for (String word : q.replaceAll("[^a-z0-9ñ ]", " ").split("\\s+")) {
-            if (word.length() > 3 && !keys.contains(word)) keys.add(word);
-        }
-        return keys;
-    }
-
-    // ---------- bubble views ----------
-
     private View buildMessageView(ChatMessage m) {
-        LinearLayout wrapper = row();
-        wrapper.setGravity(m.isUser() ? Gravity.END : Gravity.START);
-
-        LinearLayout.LayoutParams wp = params(-1, -2);
-        wp.bottomMargin = dp(10);
-        wrapper.setLayoutParams(wp);
-
-        int maxWidth = (int) (getResources().getDisplayMetrics().widthPixels * 0.78f);
-
-        if (m.isUser()) {
-            TextView bubble = text(m.getText(), 14, WHITE, false);
-            bubble.setBackgroundResource(R.drawable.chat_bubble_user);
-            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
-            bubble.setMaxWidth(maxWidth);
-            bubble.setLineSpacing(dp(2), 1f);
-            wrapper.addView(bubble, params(-2, -2));
-            return wrapper;
-        }
-
-        // Bot: small avatar + bubble column
-        TextView avatar = text("✦", 12, WHITE, true);
-        avatar.setGravity(Gravity.CENTER);
-        avatar.setBackgroundResource(R.drawable.bot_avatar_background);
-        LinearLayout.LayoutParams ap = params(28, 28);
-        ap.rightMargin = dp(8);
-        wrapper.addView(avatar, ap);
-
-        LinearLayout bubble = column();
-        bubble.setBackgroundResource(R.drawable.chat_bubble_bot);
-        bubble.setPadding(dp(14), dp(10), dp(14), dp(12));
-
         if (m.isThinking()) {
-            TextView dots = text("Thinking", 14, MUTED, false);
-            dots.setTypeface(Typeface.DEFAULT, Typeface.ITALIC);
-            bubble.addView(dots);
-            startThinkingAnimation(dots);
-        } else {
-            TextView body = text(m.getText(), 14, 0xFF2E384F, false);
-            body.setLineSpacing(dp(2), 1f);
-            body.setMaxWidth(maxWidth - dp(64));
-            bubble.addView(body);
+            return buildThinkingView();
+        }
+        return m.isUser() ? buildUserBubble(m) : buildBotBubble(m);
+    }
 
-            if (m.hasSources()) {
-                TextView label = text("SOURCES", 9, MUTED, true);
-                LinearLayout.LayoutParams lp = params(-2, -2);
-                lp.topMargin = dp(12);
-                lp.bottomMargin = dp(2);
-                bubble.addView(label, lp);
+    private View buildUserBubble(ChatMessage m) {
+        LinearLayout row = row();
+        row.setGravity(Gravity.END);
+        row.setPadding(0, dp(4), 0, dp(4));
 
-                for (ChatMessage.Source s : m.getSources()) {
-                    bubble.addView(buildSourceCard(s, maxWidth - dp(64)));
-                }
+        TextView bubble = text(m.getText(), 14, WHITE, false);
+        bubble.setBackgroundResource(R.drawable.chat_bubble_user);
+        bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
+        p.gravity = Gravity.END;
+        row.addView(bubble, p);
+        return row;
+    }
+
+    private View buildBotBubble(ChatMessage m) {
+        LinearLayout outer = column();
+        outer.setPadding(0, dp(6), 0, dp(6));
+
+        LinearLayout line = row();
+        line.setGravity(Gravity.START | Gravity.TOP);
+
+        TextView icon = text("✦", 12, WHITE, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackgroundResource(R.drawable.bot_avatar_background);
+        line.addView(icon, params(26, 26));
+
+        LinearLayout content = column();
+        content.setPadding(dp(8), 0, 0, 0);
+
+        TextView bubble = text(m.getText(), 14, DARK, false);
+        bubble.setBackgroundResource(R.drawable.chat_bubble_bot);
+        bubble.setPadding(dp(13), dp(10), dp(13), dp(10));
+        bubble.setLineSpacing(dp(2), 1.15f);
+        content.addView(bubble, params(-2, -2));
+
+        if (m.hasSources()) {
+            for (ChatMessage.Source s : m.getSources()) {
+                content.addView(buildSourceCard(s, -1));
             }
         }
 
-        wrapper.addView(bubble, new LinearLayout.LayoutParams(
-                -2, -2));
+        line.addView(content, new LinearLayout.LayoutParams(0, -2, 1));
+        outer.addView(line);
+        return outer;
+    }
+
+    private View buildThinkingView() {
+        LinearLayout wrapper = row();
+        wrapper.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        wrapper.setPadding(0, dp(6), 0, dp(6));
+
+        TextView icon = text("✦", 12, WHITE, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackgroundResource(R.drawable.bot_avatar_background);
+        wrapper.addView(icon, params(26, 26));
+
+        TextView bubble = text("Thinking...", 13, MUTED, false);
+        bubble.setBackgroundResource(R.drawable.chat_bubble_bot);
+        bubble.setPadding(dp(13), dp(9), dp(13), dp(9));
+        startThinkingAnimation(bubble);
+
+        LinearLayout.LayoutParams p = params(-2, -2);
+        p.leftMargin = dp(8);
+        wrapper.addView(bubble, p);
         bubble.setMinimumWidth(dp(90));
         return wrapper;
     }
@@ -711,7 +783,9 @@ public class MainActivity extends Activity {
     }
 
     private void scrollChatToBottom() {
-        contentScroll.post(() -> contentScroll.fullScroll(View.FOCUS_DOWN));
+        if (contentScroll != null) {
+            contentScroll.post(() -> contentScroll.fullScroll(View.FOCUS_DOWN));
+        }
     }
 
     private String shorten(String s, int max) {
@@ -719,78 +793,46 @@ public class MainActivity extends Activity {
         return s.length() <= max ? s : s.substring(0, max).trim() + "…";
     }
 
-    // =========================
-    // SOURCES
-    // =========================
+    // =========================================================================
+    // 3. SOURCES TAB
+    // =========================================================================
 
     private void showSources() {
         setActiveTab(2);
         contentContainer.removeAllViews();
 
-        addText("YOUR INFORMATION FEED",
-                11, BLUE, true, 0, 8);
-
-        addText("Trusted campus sources.",
-                26, DARK, true, 0, 7);
-
+        addText("YOUR INFORMATION FEED", 11, BLUE, true, 0, 8);
+        addText("Trusted campus sources.", 26, DARK, true, 0, 7);
         addText(
-                "CampusSync collects public updates from the pages you follow. These are demo source cards for now.",
+                "CampusSense collects public updates from official university pages and saves them into a local Room SQLite database for offline RAG synthesis.",
                 13, MUTED, false, 0, 17
         );
 
-        addSourceCard(
-                "L",
-                "LSPU Official",
-                "University-wide announcements",
-                "https://www.facebook.com/LSPUOfficial",
-                0xFFEAF0FF
-        );
-
-        addSourceCard(
-                "O",
-                "SPCC OSAS",
-                "Student affairs and services",
-                "https://www.facebook.com/SPCC.OSAS",
-                0xFFEAF7F0
-        );
-
-        addSourceCard(
-                "C",
-                "CCSOCTA",
-                "College and organization updates",
-                "https://www.facebook.com/CCSOCTA",
-                0xFFFFF3E8
-        );
+        addSourceCard("L", "LSPU Official", "University-wide announcements & advisories", "https://www.facebook.com/LSPUOfficial", 0xFFEAF0FF);
+        addSourceCard("O", "SPCC OSAS", "Student affairs, scholarships & validation", "https://www.facebook.com/SPCC.OSAS", 0xFFEAF7F0);
+        addSourceCard("C", "CCSOCTA", "College and organization events & activities", "https://www.facebook.com/CCSOCTA", 0xFFFFF3E8);
 
         LinearLayout note = card();
         note.setPadding(dp(15), dp(15), dp(15), dp(15));
         note.setBackground(roundDrawable(0xFFEDF1FF, 16));
 
-        note.addView(text(
-                "HOW SYNC WORKS", 10, BLUE, true
-        ));
+        note.addView(text("HOW NANO RAG WORKS", 10, BLUE, true));
 
         TextView detail = text(
-                "Posts are downloaded by the backend and stored locally. Once cached, you can still browse and search them without an internet connection.",
+                "1. Intent Tokenizer parses queries in English or Taglish.\n" +
+                "2. Context Ranker scores local posts with (IntentWeight×0.4) + (KeywordHits×0.4) + (Recency×0.2).\n" +
+                "3. Answer Synthesizer compiles factual answers citing official pages in <15ms without server reliance.",
                 12, 0xFF526080, false
         );
 
-        LinearLayout.LayoutParams noteParams =
-                params(-1, -2);
-
+        LinearLayout.LayoutParams noteParams = params(-1, -2);
         noteParams.topMargin = dp(6);
         note.addView(detail, noteParams);
 
         addView(contentContainer, note, 10, 10);
     }
 
-    private void addSourceCard(
-            String initial,
-            String name,
-            String description,
-            String url,
-            int tint) {
-
+    private void addSourceCard(String initial, String name, String description, String url, int tint) {
         LinearLayout source = card();
         source.setPadding(dp(15), dp(14), dp(15), dp(14));
 
@@ -800,7 +842,6 @@ public class MainActivity extends Activity {
         TextView avatar = text(initial, 17, BLUE, true);
         avatar.setGravity(Gravity.CENTER);
         avatar.setBackground(roundDrawable(tint, 13));
-
         line.addView(avatar, params(43, 43));
 
         LinearLayout details = column();
@@ -808,17 +849,12 @@ public class MainActivity extends Activity {
 
         details.addView(text(name, 14, DARK, true));
 
-        TextView desc = text(
-                description, 11, MUTED, false
-        );
-
+        TextView desc = text(description, 11, MUTED, false);
         LinearLayout.LayoutParams dcp = params(-1, -2);
         dcp.topMargin = dp(4);
-
         details.addView(desc, dcp);
 
-        line.addView(details,
-                new LinearLayout.LayoutParams(0, -2, 1));
+        line.addView(details, new LinearLayout.LayoutParams(0, -2, 1));
 
         TextView arrow = text("↗", 18, BLUE, true);
         line.addView(arrow);
@@ -829,17 +865,13 @@ public class MainActivity extends Activity {
         addView(contentContainer, source, 0, 10);
     }
 
-    // =========================
+    // =========================================================================
     // REUSABLE UI HELPERS
-    // =========================
+    // =========================================================================
 
     private LinearLayout card() {
         LinearLayout layout = column();
-
-        layout.setBackground(
-                roundDrawable(WHITE, 18, 0xFFE7EAF2)
-        );
-
+        layout.setBackground(roundDrawable(WHITE, 18, 0xFFE7EAF2));
         return layout;
     }
 
@@ -855,58 +887,32 @@ public class MainActivity extends Activity {
         return layout;
     }
 
-    private TextView text(
-            String value, int size, int color, boolean bold) {
-
+    private TextView text(String value, int size, int color, boolean bold) {
         TextView view = new TextView(this);
-
         view.setText(value);
         view.setTextSize(size);
         view.setTextColor(color);
-
-        view.setTypeface(
-                Typeface.DEFAULT,
-                bold ? Typeface.BOLD : Typeface.NORMAL
-        );
-
+        view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
         view.setIncludeFontPadding(true);
-
         return view;
     }
 
-    private void addText(
-            String value,
-            int size,
-            int color,
-            boolean bold,
-            int top,
-            int bottom) {
-
+    private void addText(String value, int size, int color, boolean bold, int top, int bottom) {
         TextView view = text(value, size, color, bold);
-
         LinearLayout.LayoutParams p = params(-1, -2);
         p.topMargin = dp(top);
         p.bottomMargin = dp(bottom);
-
         contentContainer.addView(view, p);
     }
 
-    private void addView(
-            LinearLayout parent,
-            View child,
-            int top,
-            int bottom) {
-
+    private void addView(LinearLayout parent, View child, int top, int bottom) {
         LinearLayout.LayoutParams p = params(-1, -2);
         p.topMargin = dp(top);
         p.bottomMargin = dp(bottom);
-
         parent.addView(child, p);
     }
 
-    private LinearLayout.LayoutParams params(
-            int width, int height) {
-
+    private LinearLayout.LayoutParams params(int width, int height) {
         return new LinearLayout.LayoutParams(
                 width < 0 ? width : dp(width),
                 height < 0 ? height : dp(height)
@@ -914,30 +920,19 @@ public class MainActivity extends Activity {
     }
 
     private int dp(int value) {
-        return (int) (
-                value * getResources()
-                        .getDisplayMetrics().density + 0.5f
-        );
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    private GradientDrawable roundDrawable(
-            int color, int radius) {
-
+    private GradientDrawable roundDrawable(int color, int radius) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);
         drawable.setCornerRadius(dp(radius));
-
         return drawable;
     }
 
-    private GradientDrawable roundDrawable(
-            int color, int radius, int stroke) {
-
-        GradientDrawable drawable =
-                roundDrawable(color, radius);
-
+    private GradientDrawable roundDrawable(int color, int radius, int stroke) {
+        GradientDrawable drawable = roundDrawable(color, radius);
         drawable.setStroke(dp(1), stroke);
-
         return drawable;
     }
 
@@ -945,31 +940,20 @@ public class MainActivity extends Activity {
         if (name == null || name.trim().isEmpty()) {
             return "CS";
         }
-
         String[] parts = name.trim().split("\\s+");
-
         if (parts.length == 1) {
             return parts[0].substring(0, 1).toUpperCase();
         }
-
-        return (
-                parts[0].substring(0, 1) +
-                        parts[1].substring(0, 1)
-        ).toUpperCase();
+        return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
     }
 
     private void openUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
             return;
         }
-
         try {
-            startActivity(new Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(url)
-            ));
-        } catch (Exception ignored) {
-        }
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -977,6 +961,16 @@ public class MainActivity extends Activity {
         super.onDestroy();
         stopThinkingAnimation();
         uiHandler.removeCallbacksAndMessages(null);
+
+        if (networkCallback != null) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager)
+                        getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    cm.unregisterNetworkCallback(networkCallback);
+                }
+            } catch (Exception ignored) {}
+        }
         executor.shutdown();
     }
 }

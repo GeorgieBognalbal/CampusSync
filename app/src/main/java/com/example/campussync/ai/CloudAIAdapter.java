@@ -37,7 +37,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
     private static final String TAG = "CloudAIAdapter";
     private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=";
 
     private final Context context;
 

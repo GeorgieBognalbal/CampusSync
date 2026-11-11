@@ -88,6 +88,9 @@ public class MainActivity extends Activity {
     }
 
     private void seedDemoAnnouncementsIfEmpty() {
+        // Real posts have been synced from the backend: don't bring the demo posts back.
+        if (com.example.campussync.sync.SyncState.hasEverSynced(this)) return;
+
         executor.execute(() -> {
             List<AnnouncementEntity> existing =
                     announcementRepository.getAll();

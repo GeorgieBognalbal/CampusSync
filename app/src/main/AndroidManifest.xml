@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- usesCleartextTraffic: lets the app reach the dev server over plain http
+         (laptop / Wyse). Remove it once the server has an https address. -->
     <application
+        android:name=".CampusSyncApp"
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

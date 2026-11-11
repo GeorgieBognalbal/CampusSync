@@ -1,6 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
 }
+
+// Server address and key for AnnouncementSyncWorker, read from local.properties
+// (that file is not committed, so each teammate can point at their own server).
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val apiBaseUrl = localProps.getProperty("campussync.apiBaseUrl", "http://localhost:5000")
+val apiKey = localProps.getProperty("campussync.apiKey", "dev-key-change-me")
 
 android {
     namespace = "com.example.campussync"
@@ -12,6 +23,13 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

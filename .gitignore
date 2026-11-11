@@ -33,3 +33,10 @@ google-services.json
 *.hprof
 .vs/ 
 .vs/ 
+
+# Python backend
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc

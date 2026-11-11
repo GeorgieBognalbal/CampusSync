@@ -35,12 +35,12 @@ import java.util.List;
  *   Header: X-API-Key: {API_KEY}
  *
  * Configure in local.properties (not committed):
- *   campussync.apiBaseUrl=http://localhost:5000
- *   campussync.apiKey=dev-key-change-me
+ *   campussync.apiBaseUrl=http://<computer-wifi-ip>:5000
+ *   campussync.apiKey=<backend-api-key>
  */
 public class AnnouncementSyncWorker extends Worker {
 
-    private static final String TAG = "AnnouncementSync";
+    private static final String TAG = "CampusSync";
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 50;          // safety stop: 5,000 posts per run
     private static final int TIMEOUT_MS = 15_000;
@@ -55,7 +55,7 @@ public class AnnouncementSyncWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        Log.d("CampusSync", "WORKER STARTED!");
+        Log.i(TAG, "Announcement sync worker started");
         Context context = getApplicationContext();
         AnnouncementDatabase database = AnnouncementDatabase.getInstance(context);
         AnnouncementDao dao = database.announcementDao();
@@ -63,11 +63,25 @@ public class AnnouncementSyncWorker extends Worker {
         long since = SyncState.getCursor(context);
         int saved = 0;
         int removed = 0;
+        boolean reachedEnd = false;
 
         try {
             for (int page = 0; page < MAX_PAGES; page++) {
                 JSONObject body = fetchPage(since);
                 JSONArray items = body.getJSONArray("announcements");
+
+                // If the server database was recreated, its updated_at values may all be
+                // older than our persisted cursor. Recover only when we have no real cache.
+                if (page == 0 && items.length() == 0 && since > 0
+                        && dao.countRealAnnouncements() == 0) {
+                    Log.w(TAG, "Cursor " + since + " returned no rows and no real cache exists; retrying from since=0");
+                    since = 0;
+                    body = fetchPage(since);
+                    items = body.getJSONArray("announcements");
+                }
+                Log.i(TAG, "Page " + (page + 1) + ": received " + items.length()
+                        + " announcements; cursor=" + since
+                        + ", has_more=" + body.optBoolean("has_more", false));
 
                 List<AnnouncementEntity> upserts = new ArrayList<>();
                 List<String> deletions = new ArrayList<>();
@@ -81,31 +95,51 @@ public class AnnouncementSyncWorker extends Worker {
                 }
 
                 // One transaction per page: either the whole page is saved or none of it.
+                final int[] demoCount = {0};
                 database.runInTransaction(() -> {
                     if (!upserts.isEmpty()) {
-                        // First real post replaces the built-in demo posts.
-                        dao.deleteDemoPosts();
+                        // Remove fallback rows in the same transaction as the first real upsert.
+                        demoCount[0] = dao.deleteDemoPosts();
                         dao.insertAll(upserts);
                     }
                     if (!deletions.isEmpty()) dao.deleteByIds(deletions);
                 });
+                if (!upserts.isEmpty()) SyncState.markRealData(context);
 
-                Log.d("CampusSync", "Downloaded announcements: " + upserts.size());
-                Log.d("CampusSync", "Deleted announcements: " + deletions.size());
-                Log.d("CampusSync", "Total saved announcements: " + dao.count());
+                Log.i(TAG, "Committed " + upserts.size() + " real announcements; removed "
+                        + demoCount[0] + " demo announcements and processed "
+                        + deletions.size() + " deletions; Room count=" + dao.count());
 
                 saved += upserts.size();
                 removed += deletions.size();
 
                 // Only move the cursor after the page is safely saved.
-                since = body.optLong("next_since", since);
+                long nextSince = body.optLong("next_since", since);
+                boolean hasMore = body.optBoolean("has_more", false);
+                if (hasMore && nextSince <= since) {
+                    throw new JSONException("Pagination did not advance cursor (since="
+                            + since + ", next_since=" + nextSince + ")");
+                }
+                since = nextSince;
                 SyncState.setCursor(context, since);
+                Log.i(TAG, "Saved cursor=" + since + "; has_more=" + hasMore);
 
-                if (!body.optBoolean("has_more", false)) break;
+                if (!hasMore) {
+                    reachedEnd = true;
+                    break;
+                }
+            }
+
+            if (!reachedEnd) {
+                String error = "Stopped at safety limit before pagination completed";
+                SyncState.markError(context, error);
+                Log.w(TAG, error + "; cursor=" + since + "; scheduling retry");
+                return Result.retry();
             }
 
             SyncState.markSuccess(context);
-            Log.i(TAG, "Sync done: " + saved + " saved, " + removed + " removed");
+            Log.i(TAG, "Sync succeeded: " + saved + " saved/updated, " + removed
+                    + " deleted; final cursor=" + since);
             return Result.success();
 
         } catch (HttpError e) {
@@ -127,6 +161,7 @@ public class AnnouncementSyncWorker extends Worker {
     private JSONObject fetchPage(long since) throws IOException, JSONException, HttpError {
         String base = BuildConfig.API_BASE_URL.replaceAll("/+$", "");
         URL url = new URL(base + "/api/announcements/sync?since=" + since + "&limit=" + PAGE_SIZE);
+        Log.i(TAG, "Contacting " + base + "/api/announcements/sync (since=" + since + ")");
 
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         try {
@@ -137,10 +172,15 @@ public class AnnouncementSyncWorker extends Worker {
             conn.setRequestProperty("X-API-Key", BuildConfig.API_KEY);
 
             int code = conn.getResponseCode();
+            Log.i(TAG, "Sync API HTTP " + code);
             if (code != HttpURLConnection.HTTP_OK) {
                 throw new HttpError(code, readAll(conn.getErrorStream()));
             }
-            return new JSONObject(readAll(conn.getInputStream()));
+            JSONObject response = new JSONObject(readAll(conn.getInputStream()));
+            if (!response.optBoolean("success", false)) {
+                throw new JSONException("Sync API returned success=false");
+            }
+            return response;
         } finally {
             conn.disconnect();
         }

@@ -138,6 +138,11 @@ public class AnnouncementRepository {
         announcementDao.insertAll(announcements);
     }
 
+    /** Atomically inserts fallback data only if no announcements are cached yet. */
+    public int insertDemoIfEmpty(List<AnnouncementEntity> announcements) {
+        return announcementDao.insertDemoIfEmpty(announcements);
+    }
+
     public void deleteAll() {
         announcementDao.deleteAll();
     }

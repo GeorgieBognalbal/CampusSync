@@ -14,6 +14,7 @@ public final class SyncState {
     private static final String KEY_CURSOR = "since_cursor";
     private static final String KEY_LAST_SYNC = "last_sync_time";
     private static final String KEY_LAST_ERROR = "last_error";
+    private static final String KEY_HAS_REAL_DATA = "has_real_data";
 
     private SyncState() {}
 
@@ -39,6 +40,15 @@ public final class SyncState {
         return getLastSyncTime(context) > 0;
     }
 
+    /** True after at least one real server announcement has been committed locally. */
+    public static boolean hasRealData(Context context) {
+        return prefs(context).getBoolean(KEY_HAS_REAL_DATA, false);
+    }
+
+    public static void markRealData(Context context) {
+        prefs(context).edit().putBoolean(KEY_HAS_REAL_DATA, true).apply();
+    }
+
     public static void markSuccess(Context context) {
         prefs(context).edit()
                 .putLong(KEY_LAST_SYNC, System.currentTimeMillis())
@@ -55,8 +65,13 @@ public final class SyncState {
         prefs(context).edit().putString(KEY_LAST_ERROR, error).apply();
     }
 
-    /** Forget the cursor so the next sync downloads everything again. */
+    /** Reset sync metadata when Room creates a new, empty local database. */
     public static void reset(Context context) {
-        prefs(context).edit().remove(KEY_CURSOR).apply();
+        prefs(context).edit()
+                .remove(KEY_CURSOR)
+                .remove(KEY_LAST_SYNC)
+                .remove(KEY_LAST_ERROR)
+                .remove(KEY_HAS_REAL_DATA)
+                .apply();
     }
 }

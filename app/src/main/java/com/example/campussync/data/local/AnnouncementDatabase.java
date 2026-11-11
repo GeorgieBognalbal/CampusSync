@@ -29,18 +29,10 @@ public abstract class AnnouncementDatabase extends RoomDatabase {
                                     AnnouncementDatabase.class,
                                     "campussync_database"
                             )
-                            // Data on the phone is only a copy of the server, so when the
-                            // schema changes it is safe to wipe it and re-sync.
-                            .fallbackToDestructiveMigration(true)
                             .addCallback(new Callback() {
                                 @Override
                                 public void onCreate(SupportSQLiteDatabase db) {
                                     // Empty database -> download everything on next sync.
-                                    SyncState.reset(context.getApplicationContext());
-                                }
-
-                                @Override
-                                public void onDestructiveMigration(SupportSQLiteDatabase db) {
                                     SyncState.reset(context.getApplicationContext());
                                 }
                             })

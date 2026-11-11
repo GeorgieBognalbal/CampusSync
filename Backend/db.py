@@ -70,7 +70,10 @@ def now_ms() -> int:
 
 @contextmanager
 def connect():
-    conn = sqlite3.connect(DB_PATH)
+    # Ingestion and phone sync can touch the database at the same time. WAL lets
+    # readers continue during writes; the busy timeout gives short writes time to finish.
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.execute("PRAGMA busy_timeout = 30000")
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -84,6 +87,8 @@ def connect():
 
 def init_db() -> None:
     with connect() as conn:
+        # WAL allows sync requests to read while ingestion commits new rows.
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA_SQL)
 
 

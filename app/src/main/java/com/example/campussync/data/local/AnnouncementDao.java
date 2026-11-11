@@ -49,7 +49,19 @@ public interface AnnouncementDao {
 
     /** Removes the built-in demo posts (ids starting with "demo-"). */
     @Query("DELETE FROM announcements WHERE facebookPostId LIKE 'demo-%'")
-    void deleteDemoPosts();
+    int deleteDemoPosts();
+
+    /** Real cached records; used to recover safely from a stale server cursor. */
+    @Query("SELECT COUNT(*) FROM announcements WHERE facebookPostId NOT LIKE 'demo-%'")
+    int countRealAnnouncements();
+
+    /** Insert fallback data only while the database is empty, under one transaction. */
+    @androidx.room.Transaction
+    default int insertDemoIfEmpty(List<AnnouncementEntity> demos) {
+        if (count() != 0) return 0;
+        insertAll(demos);
+        return demos.size();
+    }
 
     @Query("DELETE FROM announcements")
     void deleteAll();

@@ -198,13 +198,15 @@ public class MainActivity extends Activity {
 
     private void seedDemoAnnouncementsIfEmpty() {
         // Real posts have been synced from the backend: don't bring the demo posts back.
-        if (SyncState.hasEverSynced(this)) return;
+        if (SyncState.hasEverSynced(this) || SyncState.hasRealData(this)) return;
 
         executor.execute(() -> {
             List<AnnouncementEntity> existing =
                     announcementRepository.getAll();
 
-            if (existing.size() < 5) {
+            if (existing.isEmpty()
+                    && !SyncState.hasEverSynced(this)
+                    && !SyncState.hasRealData(this)) {
                 List<AnnouncementEntity> samples = Arrays.asList(
                         new AnnouncementEntity(
                                 "demo-001",
@@ -250,7 +252,8 @@ public class MainActivity extends Activity {
                         )
                 );
 
-                announcementRepository.insertAll(samples);
+                int inserted = announcementRepository.insertDemoIfEmpty(samples);
+                android.util.Log.i("CampusSync", "Fallback demo announcements inserted: " + inserted);
             }
 
             runOnUiThread(() -> {

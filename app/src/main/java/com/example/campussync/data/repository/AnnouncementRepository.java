@@ -138,6 +138,10 @@ public class AnnouncementRepository {
         announcementDao.insertAll(announcements);
     }
 
+    public void deleteAll() {
+        announcementDao.deleteAll();
+    }
+
     public int count() {
         return announcementDao.count();
     }

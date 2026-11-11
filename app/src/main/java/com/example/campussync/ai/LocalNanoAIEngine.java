@@ -148,7 +148,7 @@ public class LocalNanoAIEngine {
             return new NanoAIResult(
                     "I am **CampusSense Local Nano AI** 🎓\n\n" +
                     "Built for **Hack4Success 2026** (Track: Student Around Services, LSPU-SPCC).\n" +
-                    "I run a lightweight Neuro-Symbolic RAG pipeline **100% locally on your phone** (<15ms latency, <20MB RAM, zero data cost) to give you instant, zero-hallucination answers from official campus announcements!",
+                    "I run a lightweight Neuro-Symbolic RAG pipeline **100% locally on your phone** (<15ms latency, <20MB RAM, zero data cost) to give you instant, zero-hallucination answers from official campus announcements and the complete LSPU-SPCC Student Knowledge Base!",
                     Intent.IDENTITY, 0.99f, null, true
             );
         }
@@ -156,71 +156,69 @@ public class LocalNanoAIEngine {
         if (detectedIntent == Intent.GENERAL) {
             return new NanoAIResult(
                     "Hello! I am CampusSense, your offline-first campus companion. Here's what you can ask me:\n\n" +
-                    "• 🌧️ **Class Suspensions**: *\"May pasok ba bukas?\"* or *\"Walang klase update\"*\n" +
-                    "• 🎓 **Scholarships**: *\"Kailan deadline ng TDP / CHED?\"* or *\"OSAS requirements\"*\n" +
-                    "• 📚 **Academics**: *\"Midterm exam schedule\"* or *\"Paano kumuha ng exam permit?\"*\n" +
-                    "• 📢 **Events**: *\"Upcoming campus activities\"* or *\"OCTA / COESC updates\"*\n" +
-                    "• 🏛️ **Campus Info**: *\"Registrar office hours\"* or *\"Saan ang OSAS / Clinic?\"*",
+                    "• 🌧️ **Class Suspensions**: *\"May pasok ba bukas?\"* or *\"Signal 1 suspension protocol\"*\n" +
+                    "• 🎓 **Scholarships**: *\"TDP requirements & deadline\"* or *\"UniFAST / Free tuition policy\"*\n" +
+                    "• 📚 **Academics & Grading**: *\"Ano passing grade?\"*, *\"Paano maayos ang INC?\"*, or *\"Dean's list GWA\"*\n" +
+                    "• 🏛️ **Programs & Courses**: *\"Courses offered in CCS\"* or *\"LSPU college degrees\"*\n" +
+                    "• 👔 **Student Rules**: *\"Uniform guidelines & wash days\"* or *\"Nawala ang ID ko\"*\n" +
+                    "• 🏢 **Campus Directory**: *\"Saan ang OSAS / Clinic / Registrar?\"* or *\"Emergency hotlines\"*",
                     Intent.GENERAL, 0.98f, null, true
             );
         }
 
-        // --- 2. Campus Knowledge Base & Student Services FAQs ---
-        NanoAIResult campusFaqResult = checkCampusFaq(normalizedQuery);
-        if (campusFaqResult != null) {
-            return campusFaqResult;
-        }
-
-        // --- 3. Retrieval from Local Room SQLite Database ---
-        if (cachedPosts == null || cachedPosts.isEmpty()) {
-            return fallbackResult(detectedIntent, normalizedQuery);
-        }
-
-        List<String> queryTokens = extractTokens(normalizedQuery);
-
-        // Find recency bounds
-        long minTime = Long.MAX_VALUE;
-        long maxTime = Long.MIN_VALUE;
-        for (AnnouncementEntity post : cachedPosts) {
-            if (post.createdAt < minTime) minTime = post.createdAt;
-            if (post.createdAt > maxTime) maxTime = post.createdAt;
-        }
-
-        // Rank candidates with Hybrid Scoring Formula:
-        // Score = (IntentWeight * 0.4) + (KeywordHits * 0.4) + (Recency * 0.2)
+        // --- 2. Evaluate Cached Announcements from Room DB ---
         AnnouncementEntity bestPost = null;
         float bestScore = -1f;
 
-        for (AnnouncementEntity post : cachedPosts) {
-            float score = calculateHybridScore(post, detectedIntent, queryTokens, minTime, maxTime);
-            if (score > bestScore) {
-                bestScore = score;
-                bestPost = post;
+        if (cachedPosts != null && !cachedPosts.isEmpty()) {
+            List<String> queryTokens = extractTokens(normalizedQuery);
+            long minTime = Long.MAX_VALUE;
+            long maxTime = Long.MIN_VALUE;
+            for (AnnouncementEntity post : cachedPosts) {
+                if (post.createdAt < minTime) minTime = post.createdAt;
+                if (post.createdAt > maxTime) maxTime = post.createdAt;
+            }
+
+            for (AnnouncementEntity post : cachedPosts) {
+                float score = calculateHybridScore(post, detectedIntent, queryTokens, minTime, maxTime);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPost = post;
+                }
             }
         }
 
-        // Fallback / Intent Inference
-        if (detectedIntent == Intent.UNKNOWN) {
-            if (bestPost != null && bestScore >= 0.35f) {
+        // If an announcement post has a strong direct match (score >= 0.35), synthesize from the post!
+        if (bestPost != null && bestScore >= 0.35f) {
+            if (detectedIntent == Intent.UNKNOWN) {
                 detectedIntent = inferIntentFromPost(bestPost);
-            } else {
-                return fallbackResult(Intent.UNKNOWN, normalizedQuery);
             }
-        } else if (bestPost == null || bestScore < 0.18f) {
-            if (detectedIntent == Intent.SUSPENSION) {
-                return new NanoAIResult(
-                        "✅ **Classes remain normal as of today.**\n\nNo class suspension advisories were found in your offline announcement cache. Keep monitoring official pages for real-time weather changes.",
-                        Intent.SUSPENSION, 0.85f, null, true
-                );
-            }
-            return fallbackResult(detectedIntent, normalizedQuery);
+            String synthesizedAnswer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
+            float confidence = Math.min(0.99f, Math.max(0.65f, bestScore));
+            return new NanoAIResult(synthesizedAnswer, detectedIntent, confidence, bestPost, true);
         }
 
-        // Answer Synthesis strictly grounded in offline database
-        String synthesizedAnswer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
-        float confidence = Math.min(0.99f, Math.max(0.65f, bestScore));
+        // --- 3. Offline Encyclopedic Knowledge Base (Grading, Handbook, Courses, Directory, Hotlines) ---
+        CampusKnowledgeBase.KnowledgeEntry kbEntry = CampusKnowledgeBase.findBestMatch(normalizedQuery, detectedIntent);
+        if (kbEntry != null) {
+            return new NanoAIResult(
+                    kbEntry.content,
+                    kbEntry.intent != null ? kbEntry.intent : detectedIntent,
+                    0.95f,
+                    null,
+                    true
+            );
+        }
 
-        return new NanoAIResult(synthesizedAnswer, detectedIntent, confidence, bestPost, true);
+        // --- 4. Fallback for specific intents if no post / KB matched ---
+        if (detectedIntent == Intent.SUSPENSION) {
+            return new NanoAIResult(
+                    "✅ **Classes remain normal as of today.**\n\nNo class suspension advisories were found in your offline announcement cache. Keep monitoring official pages for real-time weather changes.",
+                    Intent.SUSPENSION, 0.85f, null, true
+            );
+        }
+
+        return fallbackResult(detectedIntent, normalizedQuery);
     }
 
     public interface CloudFallbackProvider {
@@ -245,8 +243,9 @@ public class LocalNanoAIEngine {
             return localResult;
         }
 
-        // 2. Pure conversational greetings and identity inquiries stay local (<1ms)
-        if (localResult.detectedIntent == Intent.GREETING ||
+        // 2. Knowledge Base matches, pure conversational greetings, and identity stay local (<2ms)
+        if (localResult.confidence >= 0.90f ||
+                localResult.detectedIntent == Intent.GREETING ||
                 localResult.detectedIntent == Intent.GRATITUDE ||
                 localResult.detectedIntent == Intent.IDENTITY) {
             return localResult;

@@ -10,8 +10,8 @@ val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-// Current development Wi-Fi host; override this in local.properties when the address changes.
-val apiBaseUrl = localProps.getProperty("campussync.apiBaseUrl", "http://192.168.1.111:5000")
+// Fallback server address (10.0.2.2 for Android emulator). Override in local.properties per developer.
+val apiBaseUrl = localProps.getProperty("campussync.apiBaseUrl", "http://10.0.2.2:5000")
 val apiKey = localProps.getProperty("campussync.apiKey", "dev-key-change-me")
 val geminiApiKey = localProps.getProperty("campussync.geminiApiKey", "")
 

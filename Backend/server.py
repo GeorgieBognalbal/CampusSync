@@ -1,6 +1,6 @@
 
 from flask import Flask, jsonify
-from backend.scraper import fetch_all_posts
+from scraper import fetch_all_posts
 
 app = Flask(__name__)
 

@@ -41,6 +41,10 @@ public interface AnnouncementDao {
             "AND importantDates != '[]' ORDER BY createdAt DESC")
     List<AnnouncementEntity> getWithDates();
 
+    /** Which of these ids are already saved (used to find genuinely new posts). */
+    @Query("SELECT facebookPostId FROM announcements WHERE facebookPostId IN (:ids)")
+    List<String> getExistingIds(List<String> ids);
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<AnnouncementEntity> announcements);
 

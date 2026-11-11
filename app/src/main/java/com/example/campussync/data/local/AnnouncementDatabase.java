@@ -29,10 +29,20 @@ public abstract class AnnouncementDatabase extends RoomDatabase {
                                     AnnouncementDatabase.class,
                                     "campussync_database"
                             )
+                            // The phone only keeps a copy of the server's data. If the table
+                            // layout (version) changes without a migration, wipe and re-sync
+                            // instead of crashing with "A migration from X to Y was required".
+                            .fallbackToDestructiveMigration(true)
                             .addCallback(new Callback() {
                                 @Override
                                 public void onCreate(SupportSQLiteDatabase db) {
                                     // Empty database -> download everything on next sync.
+                                    SyncState.reset(context.getApplicationContext());
+                                }
+
+                                @Override
+                                public void onDestructiveMigration(SupportSQLiteDatabase db) {
+                                    // Tables were wiped -> the old cursor would skip everything.
                                     SyncState.reset(context.getApplicationContext());
                                 }
                             })

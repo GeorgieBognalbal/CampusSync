@@ -462,7 +462,11 @@ public class LocalNanoAIEngine {
             boolean isSuspended = containsAny(source.message.toLowerCase(Locale.ROOT),
                     "suspend", "suspended", "suspindido", "walang pasok", "walang klase", "signal #", "signal no");
             if (!isSuspended) {
-                return "✅ **Classes are normal as of today.**\n\nAccording to **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\nRead official post ↗";
+                // We only know no suspension post was found, not that classes are on;
+                // the newest advisory may not have synced yet.
+                return "✅ **No class suspension found** in the announcements saved on your phone.\n\n"
+                        + "Closest match from **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\n"
+                        + "Pull down on the Feed to sync, and check the official page for the latest advisory. Read official post ↗";
             } else {
                 return "⚠️ **Class Suspension Advisory**\n\nPer official advisory from **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\nPlease monitor for further updates and stay safe. Read official post ↗";
             }

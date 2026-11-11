@@ -46,14 +46,26 @@ public final class SyncScheduler {
         syncNow(context);
     }
 
-    /** Sync right away (e.g. app opened, or a pull-to-refresh). */
+    /** Sync right away when the app opens. Leaves an already-queued sync alone. */
     public static void syncNow(Context context) {
+        syncNow(context, false);
+    }
+
+    /**
+     * @param userRequested true for pull-to-refresh / tapping the status chip.
+     *     A failed sync waits in "retry" with growing delays (30 s, 1 min, 2 min, ...).
+     *     With KEEP, a pull-to-refresh during that wait silently did nothing, so a
+     *     user request REPLACEs it and runs immediately.
+     */
+    public static void syncNow(Context context, boolean userRequested) {
         OneTimeWorkRequest now = new OneTimeWorkRequest.Builder(AnnouncementSyncWorker.class)
                 .setConstraints(needsInternet())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build();
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-                ONE_TIME_WORK, ExistingWorkPolicy.KEEP, now);
+                ONE_TIME_WORK,
+                userRequested ? ExistingWorkPolicy.REPLACE : ExistingWorkPolicy.KEEP,
+                now);
     }
 }

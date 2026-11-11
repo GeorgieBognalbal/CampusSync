@@ -35,8 +35,11 @@ import androidx.work.WorkManager;
 import com.example.campussync.ai.CloudAIAdapter;
 import com.example.campussync.ai.LocalNanoAIEngine;
 import com.example.campussync.data.local.AnnouncementDatabase;
+import com.example.campussync.calendar.CampusDates;
 import com.example.campussync.data.local.AnnouncementEntity;
 import com.example.campussync.data.model.ChatMessage;
+import com.example.campussync.notifications.KaleoNotifications;
+import com.example.campussync.notifications.KaleoReminders;
 import com.example.campussync.data.repository.AnnouncementRepository;
 import com.example.campussync.sync.SyncScheduler;
 import com.example.campussync.sync.SyncState;
@@ -88,6 +91,14 @@ public class MainActivity extends Activity {
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
+    /**
+     * Chat answers get their own thread: a cloud AI call can take up to ~20 s on a
+     * slow connection, and on the shared executor that blocked the Feed, Calendar
+     * and search from loading until the answer arrived.
+     */
+    private final ExecutorService chatExecutor =
+            Executors.newSingleThreadExecutor();
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     /** Infinite animations (skeletons, thinking dots) we must stop when views go away. */
@@ -106,6 +117,7 @@ public class MainActivity extends Activity {
         contentScroll = findViewById(R.id.contentScroll);
         swipeRefresh = findViewById(R.id.swipeRefresh);
         statusText = findViewById(R.id.statusText);
+        findViewById(R.id.notifButton).setOnClickListener(v -> showNotificationSettings());
         chatInputBar = findViewById(R.id.chatInputBar);
         chatInput = findViewById(R.id.chatInput);
         chatSend = findViewById(R.id.chatSend);
@@ -136,6 +148,10 @@ public class MainActivity extends Activity {
 
         // Tap the status chip to refresh too
         statusText.setOnClickListener(v -> {
+            if (isOnline && SyncState.getLastError(this) != null) {
+                showSyncProblem();
+                return;
+            }
             swipeRefresh.setRefreshing(true);
             refreshAnnouncements();
         });
@@ -143,6 +159,7 @@ public class MainActivity extends Activity {
         startNetworkWatch();
         updateStatus();
         seedDemoAnnouncementsIfEmpty();
+        maybeAskNotificationPermission();
         showAnnouncements();
         watchSync();
     }
@@ -304,9 +321,13 @@ public class MainActivity extends Activity {
     // =========================
 
     private void refreshAnnouncements() {
-        // Ask the sync worker to download new posts from the backend now.
-        SyncScheduler.syncNow(getApplicationContext());
-        watchSync();
+        if (!isOnline) {
+            // Still queue it: it runs by itself as soon as a connection is back
+            // (a laptop server on Wi-Fi without internet also counts as "offline" here).
+            toast("You're offline — Kaleo will sync when you're connected");
+        }
+        // User asked: replace any sync stuck waiting in retry/backoff and run now.
+        SyncScheduler.syncNow(getApplicationContext(), true);
 
         // No internet: the worker waits for a connection, so don't spin forever.
         uiHandler.postDelayed(() -> {
@@ -316,29 +337,52 @@ public class MainActivity extends Activity {
         }, 10_000);
     }
 
-    /** Reloads the feed when the current sync finishes (also used on app start). */
+    private LiveData<List<WorkInfo>> syncWork;
+    private Observer<List<WorkInfo>> syncObserver;
+    private String lastHandledSync = "";
+
+    /**
+     * Watches the sync for the whole life of the screen (registered once).
+     *
+     * The old version added a new observer on every refresh and only reacted to
+     * "finished" states. That missed two cases:
+     *  - LiveData first replays the PREVIOUS run's result, so the observer fired on
+     *    old news and removed itself before the new sync finished -> feed not reloaded.
+     *  - A failed sync goes back to ENQUEUED (retry), never "finished" -> the spinner
+     *    and status never showed the failure.
+     */
     private void watchSync() {
-        final LiveData<List<WorkInfo>> work = WorkManager.getInstance(getApplicationContext())
+        if (syncObserver != null) return;
+        syncWork = WorkManager.getInstance(getApplicationContext())
                 .getWorkInfosForUniqueWorkLiveData(SyncScheduler.ONE_TIME_WORK);
-        work.observeForever(new Observer<List<WorkInfo>>() {
-            @Override
-            public void onChanged(List<WorkInfo> infos) {
-                if (infos == null || infos.isEmpty() || !infos.get(0).getState().isFinished()) return;
-                work.removeObserver(this);
-                if (isFinishing()) return;
-                swipeRefresh.setRefreshing(false);
-                updateStatus();
-                if (currentTab == 0) showAnnouncements();
-                if (calendarSyncEnabled()) syncAllToPhoneCalendar(false);
-                else if (currentTab == 2) showCalendar();
-            }
-        });
+        syncObserver = infos -> {
+            if (infos == null || infos.isEmpty() || isFinishing()) return;
+            WorkInfo info = infos.get(0);
+            WorkInfo.State state = info.getState();
+            boolean retrying = state == WorkInfo.State.ENQUEUED && info.getRunAttemptCount() > 0;
+            if (!state.isFinished() && !retrying) return;   // still waiting / running
+
+            String key = info.getId() + ":" + state + ":" + info.getRunAttemptCount();
+            if (key.equals(lastHandledSync)) return;
+            lastHandledSync = key;
+
+            swipeRefresh.setRefreshing(false);
+            updateStatus();
+            if (currentTab == 0) showAnnouncements();
+            if (calendarSyncEnabled()) syncAllToPhoneCalendar(false);
+            else if (currentTab == 2) showCalendar();
+        };
+        syncWork.observeForever(syncObserver);
     }
 
     private void updateStatus() {
         long last = SyncState.getLastSyncTime(this);
+        String error = SyncState.getLastError(this);
+        boolean failed = isOnline && error != null;
         if (!isOnline) {
             statusText.setText("Offline");
+        } else if (failed) {
+            statusText.setText("Sync failed · tap");
         } else if (last == 0) {
             statusText.setText("Not synced yet");
         } else {
@@ -351,10 +395,44 @@ public class MainActivity extends Activity {
         android.graphics.drawable.Drawable icon = getDrawable(R.drawable.ic_refresh);
         if (icon != null) {
             icon = icon.mutate();
-            icon.setTint(SUCCESS);
+            icon.setTint(failed ? getColor(R.color.cat_suspension) : SUCCESS);
             icon.setBounds(0, 0, dp(12), dp(12));
             statusText.setCompoundDrawables(icon, null, null, null);
         }
+        statusText.setTextColor(failed ? getColor(R.color.cat_suspension) : SUCCESS);
+        statusText.setBackgroundTintList(failed
+                ? ColorStateList.valueOf(getColor(R.color.cat_suspension_bg)) : null);
+    }
+
+    /** Explains why the last sync failed, in plain words, with a retry button. */
+    private void showSyncProblem() {
+        String error = SyncState.getLastError(this);
+        String e = error == null ? "" : error;
+        String hint;
+        if (e.contains("HTTP 401")) {
+            hint = "The app's API key doesn't match the server. Set campussync.apiKey in "
+                    + "local.properties to the server's CAMPUSSYNC_API_KEY, then rebuild.";
+        } else if (e.startsWith("Network")) {
+            hint = "Couldn't reach the Kaleo server at " + BuildConfig.API_BASE_URL + ".\n\n"
+                    + "• Is server.py running on the laptop?\n"
+                    + "• Are the phone and laptop on the same Wi-Fi?\n"
+                    + "• Did the laptop's IP change? Update campussync.apiBaseUrl in local.properties.\n"
+                    + "• On the emulator, use http://10.0.2.2:5000";
+        } else if (e.contains("HTTP 5")) {
+            hint = "The server had an error. Check the terminal running server.py.";
+        } else {
+            hint = "Something went wrong while syncing.";
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Couldn't sync")
+                .setMessage(hint + "\n\nDetails: " + e)
+                .setPositiveButton("Try again", (d, w) -> {
+                    swipeRefresh.setRefreshing(true);
+                    refreshAnnouncements();
+                })
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     // =========================
@@ -931,8 +1009,19 @@ public class MainActivity extends Activity {
         chatHistory.add(thinking);
         appendIfVisible(thinking);
 
-        executor.execute(() -> {
-            ChatMessage answer = buildAnswer(question);
+        chatExecutor.execute(() -> {
+            ChatMessage built;
+            try {
+                built = buildAnswer(question);
+            } catch (Exception e) {
+                // Without this, one crash left botBusy = true and the chat ignored
+                // every message after it until the app was restarted.
+                android.util.Log.e("Kaleo", "Chat answer failed", e);
+                built = new ChatMessage(
+                        "Pasensya, may error sa pagsagot. Pakisubukan ulit.",
+                        ChatMessage.Sender.BOT);
+            }
+            final ChatMessage answer = built;
 
             // Small delay so the typing animation is visible
             uiHandler.postDelayed(() -> {
@@ -1290,124 +1379,34 @@ public class MainActivity extends Activity {
     private static final String KEY_CAL_EVENT_PREFIX = "cal_event_";
     private static final int REQ_CALENDAR = 42;
 
-    /** A dated item pulled out of an announcement. Dates are local, all-day. */
-    private static class CalendarItem {
-        String postId, title, pageName, permalink, message;
+    /** A dated item from an announcement, plus the category the UI colors it by. */
+    private static class CalendarItem extends CampusDates.DatedPost {
         Category category;
-        boolean deadline;
-        int y, m, d;        // start date (m is 0-based like java.util.Calendar)
-        int ey, em, ed;     // end date (same as start for single-day items)
-
-        long startMillis() { return localMillis(y, m, d); }
-        long endMillisExclusive() { return localMillis(ey, em, ed) + DateUtils.DAY_IN_MILLIS; }
-        boolean multiDay() { return y != ey || m != em || d != ed; }
     }
 
     private static long localMillis(int y, int m, int d) {
-        java.util.Calendar c = java.util.Calendar.getInstance();
-        c.clear();
-        c.set(y, m, d, 0, 0, 0);
-        return c.getTimeInMillis();
+        return CampusDates.localMillis(y, m, d);
     }
 
     private static long utcMillis(int y, int m, int d) {
-        java.util.Calendar c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
-        c.clear();
-        c.set(y, m, d, 0, 0, 0);
-        return c.getTimeInMillis();
+        return CampusDates.utcMillis(y, m, d);
     }
 
-    private static final String MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec";
-    private static final java.util.regex.Pattern MONTH_DAY = java.util.regex.Pattern.compile(
-            "\\b(" + MONTHS + ")[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?"
-                    + "(?:\\s*(?:to|until|-|–|—)\\s*(?:(" + MONTHS + ")[a-z]*\\.?\\s+)?(\\d{1,2})(?:st|nd|rd|th)?)?",
-            java.util.regex.Pattern.CASE_INSENSITIVE);
-    private static final java.util.regex.Pattern WEEKDAY = java.util.regex.Pattern.compile(
-            "\\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\\b",
-            java.util.regex.Pattern.CASE_INSENSITIVE);
-    private static final java.util.regex.Pattern TOMORROW = java.util.regex.Pattern.compile(
-            "\\b(tomorrow|bukas)\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
-
-    private static int monthIndex(String s) {
-        String k = s.toLowerCase(Locale.ROOT);
-        if (k.startsWith("sep")) return 8;
-        String[] names = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
-        for (int i = 0; i < names.length; i++) if (k.startsWith(names[i])) return i;
-        return -1;
-    }
-
-    /** Finds a date in the post ("Nov 24 to Nov 28", "before Dec 5", "this Friday", "tomorrow"). */
+    /** Date parsing lives in CampusDates (shared with the reminders). */
     private CalendarItem extractCalendarItem(AnnouncementEntity a) {
-        if (a.message == null) return null;
-        String msg = a.message;
-
-        java.util.Calendar posted = java.util.Calendar.getInstance();
-        posted.setTimeInMillis(a.createdAt);
-
+        CampusDates.DatedPost p = CampusDates.extract(a);
+        if (p == null) return null;
         CalendarItem item = new CalendarItem();
-        java.util.regex.Matcher md = MONTH_DAY.matcher(msg);
-
-        if (md.find()) {
-            int m = monthIndex(md.group(1));
-            int d = Integer.parseInt(md.group(2));
-            if (m < 0 || d < 1 || d > 31) return null;
-            int y = posted.get(java.util.Calendar.YEAR);
-            // A date far before the post date means next year (e.g. posted in Dec about "Jan 5")
-            if (localMillis(y, m, d) < a.createdAt - 60L * DateUtils.DAY_IN_MILLIS) y++;
-            item.y = y; item.m = m; item.d = d;
-
-            if (md.group(4) != null) {
-                int em = md.group(3) != null ? monthIndex(md.group(3)) : m;
-                int ed = Integer.parseInt(md.group(4));
-                int ey = y;
-                if (em < m || (em == m && ed < d)) {
-                    if (md.group(3) == null) em = (m + 1) % 12;   // "Nov 28 - 2" → Dec 2
-                    if (em < m) ey = y + 1;
-                }
-                item.ey = ey; item.em = em; item.ed = ed;
-            } else {
-                item.ey = y; item.em = m; item.ed = d;
-            }
-        } else {
-            java.util.Calendar c = (java.util.Calendar) posted.clone();
-            java.util.regex.Matcher wd = WEEKDAY.matcher(msg);
-            if (TOMORROW.matcher(msg).find()) {
-                c.add(java.util.Calendar.DAY_OF_MONTH, 1);
-            } else if (wd.find()) {
-                String[] days = {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"};
-                int target = Arrays.asList(days).indexOf(wd.group(1).toLowerCase(Locale.ROOT)) + 1;
-                int diff = (target - c.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7;
-                c.add(java.util.Calendar.DAY_OF_MONTH, diff == 0 ? 7 : diff);
-            } else {
-                return null;
-            }
-            item.y = item.ey = c.get(java.util.Calendar.YEAR);
-            item.m = item.em = c.get(java.util.Calendar.MONTH);
-            item.d = item.ed = c.get(java.util.Calendar.DAY_OF_MONTH);
-        }
-
-        String lower = msg.toLowerCase(Locale.ROOT);
-        item.postId = a.facebookPostId;
-        item.pageName = a.pageName;
-        item.permalink = a.permalink;
-        item.message = msg;
-        item.category = Category.of(msg);
-        item.deadline = lower.contains("before") || lower.contains("deadline")
-                || lower.contains("until") || lower.contains("submit");
-        item.title = titleFor(msg, item);
+        item.postId = p.postId;
+        item.title = p.title;
+        item.pageName = p.pageName;
+        item.permalink = p.permalink;
+        item.message = p.message;
+        item.deadline = p.deadline;
+        item.y = p.y; item.m = p.m; item.d = p.d;
+        item.ey = p.ey; item.em = p.em; item.ed = p.ed;
+        item.category = Category.of(a.message);
         return item;
-    }
-
-    private String titleFor(String msg, CalendarItem item) {
-        String t = msg.replaceFirst("(?i)^\\s*sample:\\s*", "");
-        // Cut at the first sentence or dash
-        for (String sep : new String[]{" — ", " - ", ". ", "! ", ": "}) {
-            int i = t.indexOf(sep);
-            if (i > 8) t = t.substring(0, i);
-        }
-        t = shorten(t.trim(), 60);
-        if (item.deadline && !t.toLowerCase(Locale.ROOT).contains("deadline")) t = "Deadline: " + t;
-        return t;
     }
 
     /** Upcoming dated items from followed sources, soonest first. Runs on the executor. */
@@ -1733,6 +1732,12 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_NOTIFICATIONS) {
+            if (KaleoNotifications.hasPermission(this)) {
+                toast("Notifications on — you'll be alerted about new announcements");
+            }
+            return;
+        }
         if (requestCode != REQ_CALENDAR) return;
         if (hasCalendarPermission()) {
             prefs.edit().putBoolean(KEY_CAL_SYNC, true).apply();
@@ -1957,6 +1962,141 @@ public class MainActivity extends Activity {
     }
 
     // =========================
+    // NOTIFICATIONS
+    // =========================
+
+    private static final int REQ_NOTIFICATIONS = 43;
+    private static final String KEY_NOTIF_ASKED = "notif_permission_asked";
+
+    /** Asks once (Android 13+) right after the first launch. */
+    private void maybeAskNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return;
+        if (KaleoNotifications.hasPermission(this)) return;
+        if (prefs.getBoolean(KEY_NOTIF_ASKED, false)) return;
+        prefs.edit().putBoolean(KEY_NOTIF_ASKED, true).apply();
+        requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                REQ_NOTIFICATIONS);
+    }
+
+    /** Bell in the header: notification settings + a test button. */
+    private void showNotificationSettings() {
+        LinearLayout box = column();
+        box.setPadding(dp(20), dp(20), dp(20), dp(8));
+
+        box.addView(text("Notifications", 18, DARK, true));
+        TextView sub = text("Get alerted when new campus announcements are synced.",
+                12, MUTED, false);
+        LinearLayout.LayoutParams sp = params(-1, -2);
+        sp.topMargin = dp(4);
+        sp.bottomMargin = dp(16);
+        box.addView(sub, sp);
+
+        boolean allowed = KaleoNotifications.hasPermission(this);
+
+        if (!allowed) {
+            TextView blocked = text(
+                    "⚠  Notifications are turned off for Kaleo. Tap here to allow them.",
+                    12, getColor(R.color.cat_exam), true);
+            blocked.setBackground(roundDrawable(getColor(R.color.soft_orange), 12));
+            blocked.setPadding(dp(12), dp(12), dp(12), dp(12));
+            blocked.setOnClickListener(v -> requestNotificationsOrOpenSettings());
+            LinearLayout.LayoutParams bp = params(-1, -2);
+            bp.bottomMargin = dp(16);
+            box.addView(blocked, bp);
+        }
+
+        box.addView(notificationSwitchRow(
+                "Urgent alerts",
+                "Class suspensions and high-urgency posts, with sound",
+                KaleoNotifications.KEY_URGENT_ENABLED));
+        box.addView(notificationSwitchRow(
+                "All new announcements",
+                "Exams, events, scholarships and other updates",
+                KaleoNotifications.KEY_ALL_ENABLED));
+        box.addView(notificationSwitchRow(
+                "Exam & deadline reminders",
+                "The day before (and morning of) dates on your Calendar tab",
+                KaleoReminders.KEY_ENABLED));
+
+        TextView note = text(
+                "Sources you turned off in Ask AI → Sources won't send notifications.",
+                11, MUTED, false);
+        LinearLayout.LayoutParams np = params(-1, -2);
+        np.topMargin = dp(8);
+        box.addView(note, np);
+
+        TextView test = text("Send a test notification", 13, BLUE, true);
+        test.setGravity(Gravity.CENTER);
+        test.setBackgroundResource(R.drawable.suggestion_pill);
+        test.setPadding(dp(16), dp(12), dp(16), dp(12));
+        test.setOnClickListener(v -> {
+            if (!KaleoNotifications.hasPermission(this)) {
+                requestNotificationsOrOpenSettings();
+                return;
+            }
+            KaleoNotifications.sendTest(getApplicationContext());
+            toast("Test sent — check your notification shade");
+        });
+        LinearLayout.LayoutParams tp = params(-1, -2);
+        tp.topMargin = dp(16);
+        box.addView(test, tp);
+
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setView(box)
+                .setPositiveButton("Done", null)
+                .create();
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(roundDrawable(CARD, 20));
+        }
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(BLUE);
+    }
+
+    private View notificationSwitchRow(String title, String desc, String key) {
+        LinearLayout row = row();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(8), 0, dp(8));
+
+        LinearLayout texts = column();
+        texts.addView(text(title, 14, DARK, true));
+        TextView d = text(desc, 11, MUTED, false);
+        LinearLayout.LayoutParams dp4 = params(-1, -2);
+        dp4.topMargin = dp(4);
+        texts.addView(d, dp4);
+        row.addView(texts, new LinearLayout.LayoutParams(0, -2, 1));
+
+        Switch sw = new Switch(this);
+        sw.setChecked(prefs.getBoolean(key, true));
+        sw.setContentDescription(title);
+        sw.setOnCheckedChangeListener((b, checked) -> {
+            prefs.edit().putBoolean(key, checked).apply();
+            if (checked && !KaleoNotifications.hasPermission(this)) {
+                requestNotificationsOrOpenSettings();
+            }
+        });
+        row.addView(sw);
+        return row;
+    }
+
+    /** Shows the system prompt if Android still allows it, otherwise opens app settings. */
+    private void requestNotificationsOrOpenSettings() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && (!prefs.getBoolean(KEY_NOTIF_ASKED, false)
+                || shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS))) {
+            prefs.edit().putBoolean(KEY_NOTIF_ASKED, true).apply();
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    REQ_NOTIFICATIONS);
+            return;
+        }
+        try {
+            startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+        } catch (Exception e) {
+            toast("Open Settings → Apps → Kaleo → Notifications");
+        }
+    }
+
+    // =========================
     // REUSABLE UI HELPERS
     // =========================
 
@@ -2124,6 +2264,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (syncWork != null && syncObserver != null) syncWork.removeObserver(syncObserver);
         stopThinkingAnimation();
         stopCountdown();
         if (connectivity != null && networkCallback != null) {
@@ -2132,5 +2273,6 @@ public class MainActivity extends Activity {
         stopSkeletons();
         uiHandler.removeCallbacksAndMessages(null);
         executor.shutdown();
+        chatExecutor.shutdown();
     }
 }

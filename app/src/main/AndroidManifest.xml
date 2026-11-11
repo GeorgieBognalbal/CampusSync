@@ -4,6 +4,8 @@
     <!-- Calendar sync: add exam/event dates to the phone calendar -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- Alerts for new announcements and reminders (asked at runtime on Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- usesCleartextTraffic: lets the app reach the dev server over plain http
          (laptop / Wyse). Remove it once the server has an https address. -->
     <application

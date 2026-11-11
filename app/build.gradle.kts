@@ -45,5 +45,6 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.2")
     annotationProcessor("androidx.room:room-compiler:2.7.2")
     implementation("androidx.work:work-runtime:2.10.2")
+    implementation("androidx.core:core:1.13.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }

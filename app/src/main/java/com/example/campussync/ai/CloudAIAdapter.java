@@ -26,7 +26,7 @@ import java.util.Locale;
  * Cloud AI Adapter for Path 3 (Hybrid Edge-First Nano RAG with Cloud Fallback)
  * 
  * Provides live multi-tier AI expansion when the device is connected to the internet.
- * Connects directly to Google Gemini 1.5 Flash via REST API using standard Android networking
+ * Connects directly to Google Gemini Flash via REST API using standard Android networking
  * (HttpURLConnection + org.json, zero external dependencies).
  * 
  * If a Gemini API key is configured (via local.properties 'campussync.geminiApiKey'),
@@ -37,7 +37,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
     private static final String TAG = "CloudAIAdapter";
     private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=";
 
     private final Context context;
 
@@ -91,7 +91,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
         String apiKey = BuildConfig.GEMINI_API_KEY;
 
-        // 1. Try real live Gemini 1.5 Flash call if API key is configured
+        // 1. Try a real live Gemini Flash call if an API key is configured
         if (apiKey != null && !apiKey.trim().isEmpty() && !apiKey.equals("null")) {
             try {
                 String liveAnswer = callGeminiLive(userQuery, cachedSource, apiKey.trim());
@@ -122,7 +122,8 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
     }
 
     /**
-     * Executes real HTTP POST to Google Gemini 1.5 Flash using HttpURLConnection.
+     * Executes real HTTP POST to Google Gemini Flash using HttpURLConnection.
+     * gemini-3.5-flash (used before) is deprecated; Google only redirects it for now.
      */
     private String callGeminiLive(String userQuery, AnnouncementEntity cachedSource, String apiKey) throws Exception {
         URL url = new URL(GEMINI_API_URL + apiKey);
@@ -222,7 +223,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
         // Help notice if GEMINI_API_KEY is not yet added
         if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("null")) {
-            return body + "\n\n💡 *Tip: To enable live Gemini 1.5 Flash generative reasoning for open queries, add `campussync.geminiApiKey=YOUR_KEY` in local.properties.*";
+            return body + "\n\n💡 *Tip: To enable live Gemini Flash generative reasoning for open queries, add `campussync.geminiApiKey=YOUR_KEY` in local.properties.*";
         }
 
         return body;

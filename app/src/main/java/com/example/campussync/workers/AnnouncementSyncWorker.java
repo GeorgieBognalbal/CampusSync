@@ -11,6 +11,8 @@ import com.example.campussync.BuildConfig;
 import com.example.campussync.data.local.AnnouncementDao;
 import com.example.campussync.data.local.AnnouncementDatabase;
 import com.example.campussync.data.local.AnnouncementEntity;
+import com.example.campussync.notifications.KaleoNotifications;
+import com.example.campussync.notifications.KaleoReminders;
 import com.example.campussync.sync.SyncState;
 
 import org.json.JSONArray;
@@ -25,6 +27,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -59,13 +62,31 @@ public class AnnouncementSyncWorker extends Worker {
         AnnouncementDatabase database = AnnouncementDatabase.getInstance(context);
         AnnouncementDao dao = database.announcementDao();
 
+        // Room opens the database lazily. Touch it BEFORE reading the cursor: if this
+        // open creates a fresh database (or wipes an old one), its callback resets the
+        // cursor, and we must read the reset value, not the stale one that would skip
+        // every post the phone no longer has.
+        dao.count();
+
         long since = SyncState.getCursor(context);
+        // First sync ever downloads the whole backlog; don't notify for all of it.
+        boolean firstSync = since == 0;
+        List<AnnouncementEntity> newPosts = new ArrayList<>();
         int saved = 0;
         int removed = 0;
         boolean reachedEnd = false;
 
         try {
             for (int page = 0; page < MAX_PAGES; page++) {
+                // A pull-to-refresh replaces this run; stop between pages so two syncs
+                // don't write the cursor at the same time.
+                if (isStopped()) {
+                    Log.i(TAG, "Sync stopped (replaced by a newer request) at cursor=" + since);
+                    // Pages saved so far are final; the newer run will see these posts
+                    // as already stored, so announce them now or they'd never notify.
+                    KaleoNotifications.notifyNewPosts(context, newPosts);
+                    return Result.success();
+                }
                 JSONObject body = fetchPage(since);
                 JSONArray items = body.getJSONArray("announcements");
 
@@ -90,6 +111,16 @@ public class AnnouncementSyncWorker extends Worker {
                         deletions.add(item.getString("id"));
                     } else {
                         upserts.add(toEntity(item));
+                    }
+                }
+
+                // Posts not on the phone yet -> candidates for a notification
+                if (!upserts.isEmpty() && !firstSync) {
+                    List<String> ids = new ArrayList<>();
+                    for (AnnouncementEntity a : upserts) ids.add(a.facebookPostId);
+                    HashSet<String> existing = new HashSet<>(dao.getExistingIds(ids));
+                    for (AnnouncementEntity a : upserts) {
+                        if (!existing.contains(a.facebookPostId)) newPosts.add(a);
                     }
                 }
 
@@ -133,6 +164,8 @@ public class AnnouncementSyncWorker extends Worker {
             }
 
             SyncState.markSuccess(context);
+            KaleoNotifications.notifyNewPosts(context, newPosts);
+            KaleoReminders.check(context);
             Log.i(TAG, "Sync succeeded: " + saved + " saved/updated, " + removed
                     + " deleted; final cursor=" + since);
             return Result.success();

@@ -46,6 +46,18 @@
                 android:letterSpacing="0.12" />
         </LinearLayout>
 
+        <!-- Notification settings -->
+        <ImageView
+            android:id="@+id/notifButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/status_background"
+            android:contentDescription="Notification settings"
+            android:padding="8dp"
+            android:src="@drawable/ic_bell"
+            android:tint="@color/status_text" />
+
         <!-- Sync status: "Updated 2m ago". Tap to refresh. -->
         <TextView
             android:id="@+id/statusText"

@@ -1,0 +1,8 @@
+[Unit]
+Description=CampusSync: daily database backup
+
+[Service]
+Type=oneshot
+User=@USER@
+EnvironmentFile=/etc/campussync/campussync.env
+ExecStart=@DEPLOY@/backup.sh

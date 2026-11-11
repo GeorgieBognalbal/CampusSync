@@ -1,0 +1,17 @@
+[Unit]
+Description=CampusSync sync API (gunicorn + Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@BACKEND@
+EnvironmentFile=/etc/campussync/campussync.env
+# 2 workers is plenty for an e2-micro (1 GB RAM). Only listens locally;
+# Caddy in front handles HTTPS from the internet.
+ExecStart=@BACKEND@/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5000 --access-logfile - server:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

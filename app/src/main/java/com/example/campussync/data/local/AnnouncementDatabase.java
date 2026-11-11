@@ -5,23 +5,46 @@ import android.content.Context;
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {AnnouncementEntity.class}, version = 1, exportSchema = false)
+import com.example.campussync.sync.SyncState;
+
+@Database(
+        entities = {AnnouncementEntity.class, AnnouncementFts.class},
+        version = 2,
+        exportSchema = false
+)
 public abstract class AnnouncementDatabase extends RoomDatabase {
 
     private static volatile AnnouncementDatabase INSTANCE;
 
     public abstract AnnouncementDao announcementDao();
 
-    public static AnnouncementDatabase getInstance(Context context) {
+    public static AnnouncementDatabase getInstance(final Context context) {
         if (INSTANCE == null) {
             synchronized (AnnouncementDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(
-                            context.getApplicationContext(),
-                            AnnouncementDatabase.class,
-                            "campussync_database"
-                    ).build();
+                                    context.getApplicationContext(),
+                                    AnnouncementDatabase.class,
+                                    "campussync_database"
+                            )
+                            // Data on the phone is only a copy of the server, so when the
+                            // schema changes it is safe to wipe it and re-sync.
+                            .fallbackToDestructiveMigration(true)
+                            .addCallback(new Callback() {
+                                @Override
+                                public void onCreate(SupportSQLiteDatabase db) {
+                                    // Empty database -> download everything on next sync.
+                                    SyncState.reset(context.getApplicationContext());
+                                }
+
+                                @Override
+                                public void onDestructiveMigration(SupportSQLiteDatabase db) {
+                                    SyncState.reset(context.getApplicationContext());
+                                }
+                            })
+                            .build();
                 }
             }
         }

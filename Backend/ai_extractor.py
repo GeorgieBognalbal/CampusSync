@@ -1,4 +1,4 @@
-"""Extracts takeaways, dates, tags and urgency from scraped posts using Gemini."""
+"""Fills in the AI fields (clean text, takeaway, dates, categories, urgency) using Gemini."""
 
 from __future__ import annotations
 
@@ -12,32 +12,31 @@ import time
 import unicodedata
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
 HERE = Path(__file__).resolve().parent
-RAW_COPY = HERE / "raw_posts.json"
-DEFAULT_OUTPUT = HERE / "extracted_posts.json"
+sys.path.insert(0, str(HERE))
+
+import db  # noqa: E402
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 PH_TIME = timezone(timedelta(hours=8), "PHT")
 MAX_IMAGES = 3
 MAX_IMAGE_BYTES = 7 * 1024 * 1024
 
-TAGS: dict[str, str] = {
-    "#Suspension": "classes or work suspended or cancelled, campus closures",
-    "#Scholarship": "scholarships or financial aid that STUDENTS can apply for or must act on "
-                    "(news about faculty or staff scholarships is #News, not #Scholarship)",
-    "#Enrollment": "enrollment, registration, adding or dropping subjects, grades, "
-                   "school records, registrar requirements",
-    "#Events": "activities, contests, seminars, org recruitment, sports and cultural events",
-    "#Advisory": "rules, policies, dress code, schedules, office hours, reminders, "
-                 "health, safety or weather advisories, services and price lists",
-    "#News": "reports of things that already happened: achievements, visits, results",
-    "#Other": "greetings, celebrations and anything else not useful for students",
+CATEGORIES: dict[str, str] = {
+    "Suspension": "classes or work suspended or cancelled, campus closures, no office transactions",
+    "Scholarship": "scholarships or financial aid that STUDENTS can apply for or must act on "
+                   "(news about faculty or staff scholarships is General)",
+    "Enrollment": "admission, enrollment, registration, adding or dropping subjects, grades, "
+                  "school records, registrar requirements",
+    "Events": "activities, contests, seminars, org recruitment, sports and cultural events",
+    "Exams": "exam schedules, midterms, finals, exam permits and exam reminders",
+    "General": "everything else: advisories, rules, dress code, services, price lists, "
+               "mental health tips, news, greetings",
 }
 URGENCY_LEVELS = ("High", "Medium", "Low")
 
@@ -57,15 +56,15 @@ clean_text: the full announcement as clean, readable plain text, in its original
 key_takeaway: ONE sentence in English, at most 25 words, saying what a student needs to
   know or do. Example: "No classes on Nov 12 at all levels due to the typhoon."
 
-dates: the dates that matter to students: deadlines, event dates, effective dates,
-  suspension dates. Use YYYY-MM-DD. Resolve words like "tomorrow" or "this Friday" using the
-  post time given below. A date range becomes two entries (start and end). Put a time in
-  "time" as HH:MM (24-hour) if one is given, otherwise "". Do NOT invent a date when the
-  post only says something vague like "until the end of the semester"; leave it out.
-  Use an empty list if there are no such dates.
+important_dates: the dates that matter to students: deadlines, event dates, effective
+  dates, suspension dates. Use YYYY-MM-DD. Resolve words like "tomorrow" or "this Friday"
+  using the post time given below. A date range becomes two entries (start and end). If a
+  time is given, put it in the label, e.g. "Application deadline, 11:59 PM". Do NOT invent
+  a date when the post only says something vague like "until the end of the semester";
+  leave it out. Use an empty list if there are no such dates.
 
-tags: 1 to 3 tags, chosen ONLY from this list:
-{chr(10).join(f"  {tag}: {meaning}" for tag, meaning in TAGS.items())}
+categories: 1 to 3 categories, chosen ONLY from this list:
+{chr(10).join(f"  {name}: {meaning}" for name, meaning in CATEGORIES.items())}
 
 urgency, compared with TODAY's date given below:
   High: a class or work suspension that is today or upcoming; an emergency or safety
@@ -83,54 +82,24 @@ RESPONSE_SCHEMA: dict[str, Any] = {
     "properties": {
         "clean_text": {"type": "string"},
         "key_takeaway": {"type": "string"},
-        "dates": {
+        "important_dates": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
                     "label": {"type": "string"},
                     "date": {"type": "string", "description": "YYYY-MM-DD"},
-                    "time": {"type": "string", "description": "HH:MM or empty"},
                 },
-                "required": ["label", "date", "time"],
+                "required": ["label", "date"],
             },
         },
-        "tags": {"type": "array", "items": {"type": "string", "enum": list(TAGS)}},
+        "categories": {"type": "array", "items": {"type": "string", "enum": list(CATEGORIES)}},
         "urgency": {"type": "string", "enum": list(URGENCY_LEVELS)},
         "urgency_reason": {"type": "string"},
     },
-    "required": ["clean_text", "key_takeaway", "dates", "tags", "urgency", "urgency_reason"],
+    "required": ["clean_text", "key_takeaway", "important_dates", "categories",
+                 "urgency", "urgency_reason"],
 }
-
-
-
-def keep_valid_posts(data: Any) -> list[dict[str, Any]]:
-    if isinstance(data, dict):
-        data = data.get("announcements", data.get("posts", []))
-    if not isinstance(data, list):
-        raise ValueError("expected a list of posts")
-    posts = [
-        p for p in data
-        if isinstance(p, dict) and p.get("post_id")
-        and "This Feed is deleted" not in (p.get("raw_caption") or "")
-    ]
-    skipped = len(data) - len(posts)
-    if skipped:
-        print(f"Note: skipped {skipped} entries (no post_id, or a deleted feed)")
-    return posts
-
-
-def load_posts(path: Path) -> list[dict[str, Any]]:
-    return keep_valid_posts(json.loads(path.read_text(encoding="utf-8")))
-
-
-def fetch_from_scraper() -> list[dict[str, Any]]:
-    sys.path.insert(0, str(HERE))
-    import scraper
-
-    result = scraper.fetch_all_posts()
-    RAW_COPY.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    return keep_valid_posts(result)
 
 
 def clean_caption(raw: str | None) -> str:
@@ -138,7 +107,7 @@ def clean_caption(raw: str | None) -> str:
         return ""
     text = html.unescape(raw)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"\(Feed generated with.*?FetchRSS.*?\)", "", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"\(\s*Feed generated with.*?FetchRSS.*?\)", "", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<[^>]+>", "", text)
     # turns facebook "bold" letters (𝗧𝗲𝘅𝘁) into normal text
     text = unicodedata.normalize("NFKC", text)
@@ -147,19 +116,11 @@ def clean_caption(raw: str | None) -> str:
     return text.strip()
 
 
-def parse_post_time(value: str | None) -> datetime | None:
-    if not value:
-        return None
+def posted_time(created_at_ms: Any) -> datetime | None:
     try:
-        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        try:
-            moment = parsedate_to_datetime(value)
-        except (TypeError, ValueError):
-            return None
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(PH_TIME)
+        return datetime.fromtimestamp(int(created_at_ms) / 1000, PH_TIME)
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 def download_images(urls: list[str]) -> list[tuple[bytes, str]]:
@@ -179,8 +140,7 @@ def download_images(urls: list[str]) -> list[tuple[bytes, str]]:
     return images
 
 
-
-def ask_gemini(client: Any, model: str, post: dict[str, Any], caption: str,
+def ask_gemini(client: Any, model: str, page_name: str, caption: str,
                posted_at: datetime | None, images: list[tuple[bytes, str]]) -> dict[str, Any]:
     from google.genai import errors, types
 
@@ -188,7 +148,7 @@ def ask_gemini(client: Any, model: str, post: dict[str, Any], caption: str,
     details = [
         f"TODAY: {today:%A, %B %d, %Y}",
         f"POSTED: {posted_at:%A, %B %d, %Y %I:%M %p} (Philippine time)" if posted_at else "POSTED: unknown",
-        f"PAGE: {post.get('source') or 'unknown'}",
+        f"PAGE: {page_name or 'unknown'}",
         f"IMAGES ATTACHED: {len(images)}",
         "CAPTION:",
         caption or "(no caption - the content is only in the image)",
@@ -224,106 +184,73 @@ def ask_gemini(client: Any, model: str, post: dict[str, Any], caption: str,
 
 
 def tidy_result(result: dict[str, Any]) -> dict[str, Any]:
-    tags = [t for t in result.get("tags", []) if t in TAGS][:3] or ["#Other"]
+    categories = [c for c in result.get("categories", []) if c in db.ALLOWED_CATEGORIES][:3] or ["General"]
     urgency = result.get("urgency") if result.get("urgency") in URGENCY_LEVELS else "Low"
 
     dates = []
-    for item in result.get("dates", []) or []:
+    for item in result.get("important_dates", []) or []:
         try:
             datetime.strptime(str(item.get("date", "")), "%Y-%m-%d")
         except ValueError:
             continue
-        time_text = str(item.get("time") or "").strip()
-        if not re.fullmatch(r"\d{2}:\d{2}", time_text):
-            time_text = ""
-        dates.append({"label": str(item.get("label", "")).strip(), "date": item["date"], "time": time_text})
+        dates.append({"label": str(item.get("label", "")).strip(), "date": item["date"]})
 
     return {
         "clean_text": unicodedata.normalize("NFKC", str(result.get("clean_text", ""))).strip(),
         "key_takeaway": str(result.get("key_takeaway", "")).strip(),
-        "dates": dates,
-        "tags": tags,
+        "important_dates": dates,
+        "categories": categories,
         "urgency": urgency,
-        "urgency_reason": str(result.get("urgency_reason", "")).strip(),
     }
 
 
+def add_posts_from_file(path: Path) -> int:
+    import ingest
 
-def base_record(post: dict[str, Any], caption: str, posted_at: datetime | None) -> dict[str, Any]:
-    return {
-        "post_id": str(post["post_id"]),
-        "source": post.get("source", ""),
-        "post_url": post.get("post_url", ""),
-        "posted_at": posted_at.isoformat() if posted_at else "",
-        "image_urls": list(post.get("image_urls") or []),
-        "clean_text": caption,
-        "key_takeaway": "",
-        "dates": [],
-        "tags": ["#Other"],
-        "urgency": "Low",
-        "urgency_reason": "",
-        "status": "failed",
-        "error": "",
-        "model": "",
-        "extracted_at": "",
-    }
-
-
-def save_results(path: Path, records: dict[str, dict[str, Any]]) -> None:
-    ordered = sorted(records.values(), key=lambda r: r.get("posted_at", ""), reverse=True)
-    temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps(ordered, ensure_ascii=False, indent=2), encoding="utf-8")
-    temp.replace(path)
-
-
-def load_results(path: Path) -> dict[str, dict[str, Any]]:
-    if not path.exists():
-        return {}
     data = json.loads(path.read_text(encoding="utf-8"))
-    return {str(r["post_id"]): r for r in data if isinstance(r, dict) and r.get("post_id")}
-
+    if isinstance(data, dict):
+        data = data.get("announcements", data.get("posts", []))
+    added = 0
+    for post in data:
+        if not isinstance(post, dict) or ingest.is_fetchrss_notice(post):
+            continue
+        db.save_announcement(ingest.to_announcement(post))
+        added += 1
+    return added
 
 
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    parser = argparse.ArgumentParser(description="Extract structured announcements from scraped posts.")
-    parser.add_argument("--input", type=Path, help="read posts from a JSON file instead of running scraper.py")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="results file (default: extracted_posts.json)")
-    parser.add_argument("--dry-run", action="store_true", help="check the input and images without calling Gemini")
-    parser.add_argument("--force", action="store_true", help="redo posts that were already extracted")
-    parser.add_argument("--limit", type=int, default=0, help="only process this many posts")
+    parser = argparse.ArgumentParser(description="Fill in the AI fields for posts saved by ingest.py.")
+    parser.add_argument("--input", type=Path, help="also add posts from a JSON file (scraper format) first")
+    parser.add_argument("--limit", type=int, default=100, help="most posts to process in one run")
+    parser.add_argument("--dry-run", action="store_true", help="show what would be processed, without calling Gemini")
     args = parser.parse_args()
 
-    if args.input:
-        input_path = args.input if args.input.is_absolute() else (Path.cwd() / args.input)
-        if not input_path.exists() and (HERE / args.input).exists():
-            input_path = HERE / args.input
-        if not input_path.exists():
-            print(f"Input file not found: {input_path}")
-            return 1
-        posts = load_posts(input_path)
-        origin = input_path.name
-    else:
-        print("Fetching posts with scraper.py...")
-        posts = fetch_from_scraper()
-        origin = "the scraper"
+    db.init_db()
 
-    results = load_results(args.output)
-    todo = [p for p in posts if args.force or results.get(str(p["post_id"]), {}).get("status") != "ok"]
-    if args.limit:
-        todo = todo[: args.limit]
-    print(f"{len(posts)} posts from {origin}; {len(todo)} to process")
+    if args.input:
+        path = args.input if args.input.exists() else HERE / args.input
+        if not path.exists():
+            print(f"Input file not found: {args.input}")
+            return 1
+        print(f"Added {add_posts_from_file(path)} posts from {path.name}")
+
+    rows = db.get_unprocessed(limit=args.limit)
+    print(f"{len(rows)} posts waiting for AI processing")
+    if not rows:
+        print("Nothing to do. Run ingest.py to fetch new posts.")
+        return 0
 
     client = None
+    load_dotenv(HERE / ".env")
     model = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
     if not args.dry_run:
-        load_dotenv(HERE / ".env")
-        model = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            print("No API key. Create backend/.env with a line: GEMINI_API_KEY=your-key")
+            print("No API key. Create Backend/.env with a line: GEMINI_API_KEY=your-key")
             return 1
         from google import genai
         from google.genai import types
@@ -332,47 +259,45 @@ def main() -> int:
 
     delay = float(os.getenv("GEMINI_DELAY_SECONDS", "4"))
     ok = failed = 0
-    for index, post in enumerate(todo, start=1):
-        caption = clean_caption(post.get("raw_caption"))
-        title = clean_caption(post.get("title"))
-        if not caption and title and not re.match(r"(A post|Photos) from ", title):
-            caption = title
-        posted_at = parse_post_time(post.get("timestamp"))
-        print(f"[{index}/{len(todo)}] {post.get('source', '?')} | {post['post_id']}")
-        images = download_images(post.get("image_urls") or [])
+    for index, row in enumerate(rows, start=1):
+        caption = clean_caption(row.get("raw_caption"))
+        posted_at = posted_time(row.get("created_at"))
+        print(f"[{index}/{len(rows)}] {row.get('page_name', '?')} | {row['id']}")
+        images = download_images(row.get("image_urls") or [])
 
         if args.dry_run:
-            preview = caption[:160].replace("\n", " / ")
             when = f"{posted_at:%b %d, %Y %I:%M %p} PHT" if posted_at else "no time"
+            preview = caption[:160].replace("\n", " / ")
             print(f"    {when} | {len(images)} image(s) downloaded | caption: {preview or '(empty)'}")
             continue
 
-        record = base_record(post, caption, posted_at)
-        record["model"] = model
-        record["extracted_at"] = datetime.now(PH_TIME).isoformat(timespec="seconds")
         if not caption and not images:
-            record["error"] = "no caption and no image could be downloaded"
+            fields = {"clean_text": "", "key_takeaway": "", "important_dates": [],
+                      "categories": ["General"], "urgency": "Low"}
+            reason = "no caption and no image could be downloaded"
         else:
             try:
-                record.update(tidy_result(ask_gemini(client, model, post, caption, posted_at, images)))
-                record["status"] = "ok"
-                record["error"] = ""
+                result = ask_gemini(client, model, row.get("page_name", ""), caption, posted_at, images)
             except Exception as exc:
-                record["error"] = f"{type(exc).__name__}: {exc}"[:500]
+                failed += 1
+                print(f"    FAILED (will retry next run): {type(exc).__name__}: {str(exc)[:300]}")
+                continue
+            fields = tidy_result(result)
+            reason = str(result.get("urgency_reason", "")).strip()
 
-        results[record["post_id"]] = record
-        save_results(args.output, results)
-        if record["status"] == "ok":
-            ok += 1
-            print(f"    {record['urgency']} {' '.join(record['tags'])} | {record['key_takeaway']}")
-        else:
+        try:
+            db.save_announcement({"id": row["id"], **fields})
+        except ValueError as exc:
             failed += 1
-            print(f"    FAILED: {record['error']}")
-        if index < len(todo):
+            print(f"    FAILED to save: {exc}")
+            continue
+        ok += 1
+        print(f"    {fields['urgency']} {', '.join(fields['categories'])} | {fields['key_takeaway'] or reason}")
+        if index < len(rows):
             time.sleep(delay)
 
     if not args.dry_run:
-        print(f"Done: {ok} ok, {failed} failed. Saved to {args.output}")
+        print(f"Done: {ok} saved, {failed} failed.")
     return 0
 
 

@@ -27,14 +27,17 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import androidx.work.OneTimeWorkRequest;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.example.campussync.data.local.AnnouncementDatabase;
 import com.example.campussync.data.local.AnnouncementEntity;
 import com.example.campussync.data.model.ChatMessage;
 import com.example.campussync.data.repository.AnnouncementRepository;
-import com.example.campussync.workers.AnnouncementSyncWorker;
+import com.example.campussync.sync.SyncScheduler;
+import com.example.campussync.sync.SyncState;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -113,7 +116,6 @@ public class MainActivity extends Activity {
         };
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        if (prefs.getLong(KEY_LAST_SYNC, 0) == 0) markSynced();
 
         AnnouncementDatabase database =
                 AnnouncementDatabase.getInstance(getApplicationContext());
@@ -135,6 +137,7 @@ public class MainActivity extends Activity {
         updateStatus();
         seedDemoAnnouncementsIfEmpty();
         showAnnouncements();
+        watchSync();
     }
 
     private void loadColors() {
@@ -150,6 +153,9 @@ public class MainActivity extends Activity {
     }
 
     private void seedDemoAnnouncementsIfEmpty() {
+        // Real posts have been synced from the backend: don't bring the demo posts back.
+        if (SyncState.hasEverSynced(this)) return;
+
         executor.execute(() -> {
             List<AnnouncementEntity> existing =
                     announcementRepository.getAll();
@@ -249,29 +255,45 @@ public class MainActivity extends Activity {
     // =========================
 
     private void refreshAnnouncements() {
-        // Ask the background worker to sync (it will call the backend once connected)
-        WorkManager.getInstance(getApplicationContext()).enqueue(
-                new OneTimeWorkRequest.Builder(AnnouncementSyncWorker.class).build());
+        // Ask the sync worker to download new posts from the backend now.
+        SyncScheduler.syncNow(getApplicationContext());
+        watchSync();
 
+        // No internet: the worker waits for a connection, so don't spin forever.
         uiHandler.postDelayed(() -> {
             if (isFinishing()) return;
-            markSynced();
-            updateStatus();
             swipeRefresh.setRefreshing(false);
-            if (currentTab == 0) showAnnouncements();
-        }, 900);
+            updateStatus();
+        }, 10_000);
     }
 
-    private void markSynced() {
-        prefs.edit().putLong(KEY_LAST_SYNC, System.currentTimeMillis()).apply();
+    /** Reloads the feed when the current sync finishes (also used on app start). */
+    private void watchSync() {
+        final LiveData<List<WorkInfo>> work = WorkManager.getInstance(getApplicationContext())
+                .getWorkInfosForUniqueWorkLiveData(SyncScheduler.ONE_TIME_WORK);
+        work.observeForever(new Observer<List<WorkInfo>>() {
+            @Override
+            public void onChanged(List<WorkInfo> infos) {
+                if (infos == null || infos.isEmpty() || !infos.get(0).getState().isFinished()) return;
+                work.removeObserver(this);
+                if (isFinishing()) return;
+                swipeRefresh.setRefreshing(false);
+                updateStatus();
+                if (currentTab == 0) showAnnouncements();
+            }
+        });
     }
 
     private void updateStatus() {
-        long last = prefs.getLong(KEY_LAST_SYNC, System.currentTimeMillis());
-        String when = System.currentTimeMillis() - last < DateUtils.MINUTE_IN_MILLIS
-                ? "just now"
-                : relativeTime(last);
-        statusText.setText("Updated " + when);
+        long last = SyncState.getLastSyncTime(this);
+        if (last == 0) {
+            statusText.setText("Not synced yet");
+        } else {
+            String when = System.currentTimeMillis() - last < DateUtils.MINUTE_IN_MILLIS
+                    ? "just now"
+                    : relativeTime(last);
+            statusText.setText("Updated " + when);
+        }
 
         android.graphics.drawable.Drawable icon = getDrawable(R.drawable.ic_refresh);
         if (icon != null) {

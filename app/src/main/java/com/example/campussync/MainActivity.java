@@ -8,18 +8,28 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.ScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.example.campussync.data.local.AnnouncementDatabase;
 import com.example.campussync.data.local.AnnouncementEntity;
+import com.example.campussync.data.model.ChatMessage;
 import com.example.campussync.data.repository.AnnouncementRepository;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,6 +44,10 @@ public class MainActivity extends Activity {
 
     private LinearLayout contentContainer;
     private TextView navPosts, navChat, navSources;
+    private ScrollView contentScroll;
+    private View chatInputBar;
+    private EditText chatInput;
+    private TextView chatSend;
     private AnnouncementRepository announcementRepository;
 
     private final ExecutorService executor =
@@ -48,6 +62,10 @@ public class MainActivity extends Activity {
         navPosts = findViewById(R.id.navPosts);
         navChat = findViewById(R.id.navChat);
         navSources = findViewById(R.id.navSources);
+        contentScroll = findViewById(R.id.contentScroll);
+        chatInputBar = findViewById(R.id.chatInputBar);
+        chatInput = findViewById(R.id.chatInput);
+        chatSend = findViewById(R.id.chatSend);
 
         AnnouncementDatabase database =
                 AnnouncementDatabase.getInstance(getApplicationContext());
@@ -64,7 +82,7 @@ public class MainActivity extends Activity {
             List<AnnouncementEntity> existing =
                     announcementRepository.getAll();
 
-            if (existing.isEmpty()) {
+            if (existing.size() < 5) {
                 List<AnnouncementEntity> samples = Arrays.asList(
                         new AnnouncementEntity(
                                 "demo-001",
@@ -79,6 +97,27 @@ public class MainActivity extends Activity {
                                 "Sample reminder: Check the official university page for the latest student announcements.",
                                 "https://www.facebook.com/SPCC.OSAS",
                                 System.currentTimeMillis() - 3600000
+                        ),
+                        new AnnouncementEntity(
+                                "demo-003",
+                                "LSPU Official",
+                                "Sample: Classes are suspended tomorrow in all levels due to the typhoon signal. Walang pasok — please stay safe and monitor this page for updates.",
+                                "https://www.facebook.com/LSPUOfficial",
+                                System.currentTimeMillis() - 7200000
+                        ),
+                        new AnnouncementEntity(
+                                "demo-004",
+                                "CCSOCTA",
+                                "Sample: Midterm exam schedule — Nov 24 to Nov 28. Check your class adviser for room assignments. Bring your exam permit.",
+                                "https://www.facebook.com/CCSOCTA",
+                                System.currentTimeMillis() - 10800000
+                        ),
+                        new AnnouncementEntity(
+                                "demo-005",
+                                "SPCC OSAS",
+                                "Sample: Scholarship requirements — certificate of grades, certificate of indigency, 2x2 ID photo, and a filled-out application form. Submit to OSAS before Dec 5.",
+                                "https://www.facebook.com/SPCC.OSAS",
+                                System.currentTimeMillis() - 14400000
                         )
                 );
 
@@ -102,6 +141,8 @@ public class MainActivity extends Activity {
     }
 
     private void setActiveTab(int tab) {
+        chatInputBar.setVisibility(tab == 1 ? View.VISIBLE : View.GONE);
+        if (tab != 1) stopThinkingAnimation();
         navPosts.setTextColor(tab == 0 ? BLUE : MUTED);
         navChat.setTextColor(tab == 1 ? BLUE : MUTED);
         navSources.setTextColor(tab == 2 ? BLUE : MUTED);
@@ -351,189 +392,321 @@ public class MainActivity extends Activity {
     // CHAT
     // =========================
 
+    private static final String[] SUGGESTIONS = {
+            "May pasok ba?",
+            "Midterm schedule",
+            "Scholarship requirements"
+    };
+
+    /** Kept across tab switches so the conversation isn't lost. */
+    private final List<ChatMessage> chatHistory = new ArrayList<>();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    private LinearLayout messageList;
+    private LinearLayout suggestionRow;
+    private Runnable thinkingTicker;
+    private boolean botBusy = false;
+
     private void showChat() {
         setActiveTab(1);
         contentContainer.removeAllViews();
 
-        addText("CAMPUS ASSISTANT",
-                11, BLUE, true, 0, 8);
+        // Header
+        LinearLayout header = row();
+        header.setGravity(Gravity.CENTER_VERTICAL);
 
-        addText("Ask about campus.",
-                27, DARK, true, 0, 7);
-
-        addText(
-                "Find details from announcements saved on this device. Online AI answers will be added when the backend is connected.",
-                13, MUTED, false, 0, 17
-        );
-
-        LinearLayout intro = card();
-        intro.setPadding(dp(16), dp(16), dp(16), dp(16));
-
-        LinearLayout botRow = row();
-
-        TextView icon = text("✦", 20, WHITE, true);
+        TextView icon = text("✦", 18, WHITE, true);
         icon.setGravity(Gravity.CENTER);
-        icon.setBackground(roundDrawable(BLUE, 13));
+        icon.setBackgroundResource(R.drawable.bot_avatar_background);
+        header.addView(icon, params(40, 40));
 
-        botRow.addView(icon, params(42, 42));
+        LinearLayout titleBlock = column();
+        titleBlock.setPadding(dp(11), 0, 0, 0);
+        titleBlock.addView(text("CampusSync Assistant", 15, DARK, true));
+        TextView status = text("●  Answers from saved announcements",
+                11, 0xFF398260, true);
+        LinearLayout.LayoutParams sp = params(-2, -2);
+        sp.topMargin = dp(3);
+        titleBlock.addView(status, sp);
+        header.addView(titleBlock);
 
-        LinearLayout welcome = column();
-        welcome.setPadding(dp(11), 0, 0, 0);
+        addView(contentContainer, header, 0, 16);
 
-        welcome.addView(text(
-                "CampusSync Assistant", 14, DARK, true
-        ));
+        // Messages
+        messageList = column();
+        contentContainer.addView(messageList, params(-1, -2));
 
-        TextView offline = text(
-                "Offline search is ready", 11, 0xFF398260, true
-        );
+        if (chatHistory.isEmpty()) {
+            chatHistory.add(new ChatMessage(
+                    "Hi! 👋 Ako si CampusSync Assistant. Itanong mo lang ang tungkol sa klase, exams, o scholarships — hahanapin ko sa mga official announcements.",
+                    ChatMessage.Sender.BOT));
+        }
+        for (ChatMessage m : chatHistory) {
+            messageList.addView(buildMessageView(m));
+        }
 
-        LinearLayout.LayoutParams op = params(-2, -2);
-        op.topMargin = dp(4);
+        // Suggestion pills
+        TextView suggestLabel = text("SUGGESTED", 10, MUTED, true);
+        LinearLayout.LayoutParams slp = params(-1, -2);
+        slp.topMargin = dp(10);
+        slp.bottomMargin = dp(8);
+        contentContainer.addView(suggestLabel, slp);
 
-        welcome.addView(offline, op);
-        botRow.addView(welcome);
-        intro.addView(botRow);
+        HorizontalScrollView pillScroll = new HorizontalScrollView(this);
+        pillScroll.setHorizontalScrollBarEnabled(false);
+        suggestionRow = row();
+        for (String s : SUGGESTIONS) {
+            TextView pill = text(s, 13, BLUE, true);
+            pill.setBackgroundResource(R.drawable.suggestion_pill);
+            pill.setPadding(dp(14), dp(9), dp(14), dp(9));
+            pill.setOnClickListener(v -> sendChatMessage(s));
+            LinearLayout.LayoutParams pp = params(-2, -2);
+            pp.rightMargin = dp(8);
+            suggestionRow.addView(pill, pp);
+        }
+        pillScroll.addView(suggestionRow);
+        contentContainer.addView(pillScroll, params(-1, -2));
 
-        TextView prompt = text(
-                "Try asking: “What announcements did I miss?” or search for a keyword like enrollment, scholarship, or event.",
-                13, 0xFF59647A, false
-        );
-
-        LinearLayout.LayoutParams pp = params(-1, -2);
-        pp.topMargin = dp(15);
-
-        intro.addView(prompt, pp);
-
-        addView(contentContainer, intro, 0, 18);
-
-        addText("YOUR QUESTION",
-                10, MUTED, true, 0, 8);
-
-        EditText questionInput = new EditText(this);
-        questionInput.setHint("Ask or enter a keyword…");
-        questionInput.setTextSize(14);
-
-        questionInput.setGravity(
-                Gravity.TOP | Gravity.START
-        );
-
-        questionInput.setPadding(
-                dp(14), dp(13), dp(14), dp(13)
-        );
-
-        questionInput.setBackground(
-                roundDrawable(WHITE, 14, 0xFFE2E7F0)
-        );
-
-        contentContainer.addView(
-                questionInput, params(-1, 104)
-        );
-
-        TextView searchButton = text(
-                "Search saved announcements   →",
-                14, WHITE, true
-        );
-
-        searchButton.setGravity(Gravity.CENTER);
-        searchButton.setBackground(roundDrawable(BLUE, 14));
-
-        LinearLayout.LayoutParams bp = params(-1, 50);
-        bp.topMargin = dp(11);
-
-        contentContainer.addView(searchButton, bp);
-
-        LinearLayout resultArea = column();
-
-        LinearLayout.LayoutParams rap = params(-1, -2);
-        rap.topMargin = dp(17);
-
-        contentContainer.addView(resultArea, rap);
-
-        searchButton.setOnClickListener(v -> {
-            String query =
-                    questionInput.getText().toString().trim();
-
-            resultArea.removeAllViews();
-
-            if (query.isEmpty()) {
-                resultArea.addView(text(
-                        "Type a question or keyword first.",
-                        13, MUTED, false
-                ));
-                return;
+        // Composer (pinned bar in activity_main.xml)
+        chatSend.setOnClickListener(v -> {
+            String q = chatInput.getText().toString().trim();
+            if (!q.isEmpty()) {
+                chatInput.setText("");
+                sendChatMessage(q);
             }
-
-            executor.execute(() -> {
-                List<AnnouncementEntity> results =
-                        announcementRepository.search(query);
-
-                runOnUiThread(() -> {
-                    resultArea.removeAllViews();
-
-                    resultArea.addView(text(
-                            "SEARCH RESULTS", 10, BLUE, true
-                    ));
-
-                    if (results.isEmpty()) {
-                        TextView none = text(
-                                "I couldn't find a saved announcement matching that. Try a shorter keyword, or sync for newer posts when you're online.",
-                                13, MUTED, false
-                        );
-
-                        LinearLayout.LayoutParams np =
-                                params(-1, -2);
-
-                        np.topMargin = dp(9);
-                        resultArea.addView(none, np);
-
-                    } else {
-                        for (AnnouncementEntity result : results) {
-                            LinearLayout resultCard = card();
-
-                            resultCard.setPadding(
-                                    dp(14), dp(13), dp(14), dp(13)
-                            );
-
-                            LinearLayout.LayoutParams rcp =
-                                    params(-1, -2);
-
-                            rcp.topMargin = dp(9);
-                            resultArea.addView(resultCard, rcp);
-
-                            resultCard.addView(text(
-                                    result.pageName, 13, DARK, true
-                            ));
-
-                            TextView body = text(
-                                    result.message, 12, MUTED, false
-                            );
-
-                            LinearLayout.LayoutParams rbp =
-                                    params(-1, -2);
-
-                            rbp.topMargin = dp(6);
-                            resultCard.addView(body, rbp);
-
-                            TextView link = text(
-                                    "View original post ↗",
-                                    11, BLUE, true
-                            );
-
-                            LinearLayout.LayoutParams rlp =
-                                    params(-2, -2);
-
-                            rlp.topMargin = dp(9);
-                            resultCard.addView(link, rlp);
-
-                            link.setOnClickListener(
-                                    view -> openUrl(result.permalink)
-                            );
-                        }
-                    }
-                });
-            });
         });
+        chatInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
+                chatSend.performClick();
+                return true;
+            }
+            return false;
+        });
+
+        scrollChatToBottom();
+    }
+
+    private void sendChatMessage(String question) {
+        if (botBusy) return;
+        botBusy = true;
+
+        ChatMessage userMsg = new ChatMessage(question, ChatMessage.Sender.USER);
+        chatHistory.add(userMsg);
+        appendIfVisible(userMsg);
+
+        ChatMessage thinking = ChatMessage.thinking();
+        chatHistory.add(thinking);
+        appendIfVisible(thinking);
+
+        executor.execute(() -> {
+            ChatMessage answer = buildAnswer(question);
+
+            // Small delay so the "Thinking..." animation is visible
+            uiHandler.postDelayed(() -> {
+                if (isFinishing()) return;
+                chatHistory.remove(thinking);
+                chatHistory.add(answer);
+                stopThinkingAnimation();
+                if (messageList != null && messageList.isShown()) {
+                    // Remove the thinking bubble (always the last child)
+                    int last = messageList.getChildCount() - 1;
+                    if (last >= 0) messageList.removeViewAt(last);
+                    messageList.addView(buildMessageView(answer));
+                    scrollChatToBottom();
+                }
+                botBusy = false;
+            }, 1200);
+        });
+    }
+
+    private void appendIfVisible(ChatMessage m) {
+        if (messageList != null && messageList.isShown()) {
+            messageList.addView(buildMessageView(m));
+            scrollChatToBottom();
+        }
+    }
+
+    /** Runs on the background executor: searches saved posts and forms a reply. */
+    private ChatMessage buildAnswer(String question) {
+        LinkedHashMap<String, AnnouncementEntity> found = new LinkedHashMap<>();
+        for (String keyword : keywordsFor(question)) {
+            for (AnnouncementEntity a : announcementRepository.search(keyword)) {
+                found.put(a.facebookPostId, a);
+            }
+            if (found.size() >= 3) break;
+        }
+
+        if (found.isEmpty()) {
+            return new ChatMessage(
+                    "Pasensya, wala akong nakitang announcement tungkol diyan sa mga naka-save na posts. Subukan ang ibang keyword, o i-check ang official page para sa pinakabagong update.",
+                    ChatMessage.Sender.BOT);
+        }
+
+        List<ChatMessage.Source> sources = new ArrayList<>();
+        int i = 0;
+        for (AnnouncementEntity a : found.values()) {
+            if (i++ == 3) break;
+            sources.add(new ChatMessage.Source(a.pageName, a.message, a.permalink));
+        }
+
+        AnnouncementEntity top = found.values().iterator().next();
+        String reply = "Ito ang nakita ko mula sa " + top.pageName + ":\n\n"
+                + shorten(top.message, 220)
+                + (sources.size() > 1
+                    ? "\n\nMay " + (sources.size() - 1) + " pang related na post sa ibaba."
+                    : "");
+
+        return new ChatMessage(reply, ChatMessage.Sender.BOT, sources);
+    }
+
+    /** Maps common Taglish questions to keywords the local search understands. */
+    private List<String> keywordsFor(String question) {
+        String q = question.toLowerCase(Locale.ROOT);
+        List<String> keys = new ArrayList<>();
+
+        if (q.contains("pasok") || q.contains("suspend") || q.contains("class")
+                || q.contains("klase")) {
+            keys.addAll(Arrays.asList("suspension", "suspended", "pasok", "classes"));
+        }
+        if (q.contains("midterm") || q.contains("exam")) {
+            keys.addAll(Arrays.asList("midterm", "exam"));
+        }
+        if (q.contains("scholar")) {
+            keys.addAll(Arrays.asList("scholarship", "requirements"));
+        }
+        if (q.contains("enroll")) {
+            keys.add("enrollment");
+        }
+
+        // Fallback: any meaningful word from the question itself
+        for (String word : q.replaceAll("[^a-z0-9ñ ]", " ").split("\\s+")) {
+            if (word.length() > 3 && !keys.contains(word)) keys.add(word);
+        }
+        return keys;
+    }
+
+    // ---------- bubble views ----------
+
+    private View buildMessageView(ChatMessage m) {
+        LinearLayout wrapper = row();
+        wrapper.setGravity(m.isUser() ? Gravity.END : Gravity.START);
+
+        LinearLayout.LayoutParams wp = params(-1, -2);
+        wp.bottomMargin = dp(10);
+        wrapper.setLayoutParams(wp);
+
+        int maxWidth = (int) (getResources().getDisplayMetrics().widthPixels * 0.78f);
+
+        if (m.isUser()) {
+            TextView bubble = text(m.getText(), 14, WHITE, false);
+            bubble.setBackgroundResource(R.drawable.chat_bubble_user);
+            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+            bubble.setMaxWidth(maxWidth);
+            bubble.setLineSpacing(dp(2), 1f);
+            wrapper.addView(bubble, params(-2, -2));
+            return wrapper;
+        }
+
+        // Bot: small avatar + bubble column
+        TextView avatar = text("✦", 12, WHITE, true);
+        avatar.setGravity(Gravity.CENTER);
+        avatar.setBackgroundResource(R.drawable.bot_avatar_background);
+        LinearLayout.LayoutParams ap = params(28, 28);
+        ap.rightMargin = dp(8);
+        wrapper.addView(avatar, ap);
+
+        LinearLayout bubble = column();
+        bubble.setBackgroundResource(R.drawable.chat_bubble_bot);
+        bubble.setPadding(dp(14), dp(10), dp(14), dp(12));
+
+        if (m.isThinking()) {
+            TextView dots = text("Thinking", 14, MUTED, false);
+            dots.setTypeface(Typeface.DEFAULT, Typeface.ITALIC);
+            bubble.addView(dots);
+            startThinkingAnimation(dots);
+        } else {
+            TextView body = text(m.getText(), 14, 0xFF2E384F, false);
+            body.setLineSpacing(dp(2), 1f);
+            body.setMaxWidth(maxWidth - dp(64));
+            bubble.addView(body);
+
+            if (m.hasSources()) {
+                TextView label = text("SOURCES", 9, MUTED, true);
+                LinearLayout.LayoutParams lp = params(-2, -2);
+                lp.topMargin = dp(12);
+                lp.bottomMargin = dp(2);
+                bubble.addView(label, lp);
+
+                for (ChatMessage.Source s : m.getSources()) {
+                    bubble.addView(buildSourceCard(s, maxWidth - dp(64)));
+                }
+            }
+        }
+
+        wrapper.addView(bubble, new LinearLayout.LayoutParams(
+                -2, -2));
+        bubble.setMinimumWidth(dp(90));
+        return wrapper;
+    }
+
+    private View buildSourceCard(ChatMessage.Source s, int width) {
+        LinearLayout card = row();
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackgroundResource(R.drawable.source_card_background);
+        card.setPadding(dp(10), dp(9), dp(10), dp(9));
+
+        TextView fb = text("f", 14, WHITE, true);
+        fb.setGravity(Gravity.CENTER);
+        fb.setBackground(roundDrawable(0xFF1877F2, 8));
+        card.addView(fb, params(28, 28));
+
+        LinearLayout info = column();
+        info.setPadding(dp(9), 0, dp(6), 0);
+        info.addView(text(s.getPageName(), 12, DARK, true));
+        TextView snip = text(shorten(s.getSnippet(), 70), 11, MUTED, false);
+        snip.setMaxLines(1);
+        snip.setEllipsize(TextUtils.TruncateAt.END);
+        info.addView(snip);
+        card.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
+
+        card.addView(text("↗", 15, BLUE, true));
+        card.setOnClickListener(v -> openUrl(s.getUrl()));
+
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(width, -2);
+        cp.topMargin = dp(6);
+        card.setLayoutParams(cp);
+        return card;
+    }
+
+    private void startThinkingAnimation(TextView target) {
+        stopThinkingAnimation();
+        final String[] frames = {"Thinking", "Thinking.", "Thinking..", "Thinking..."};
+        thinkingTicker = new Runnable() {
+            int frame = 0;
+            @Override
+            public void run() {
+                target.setText(frames[frame++ % frames.length]);
+                target.setAlpha(frame % 2 == 0 ? 1f : 0.7f);
+                uiHandler.postDelayed(this, 350);
+            }
+        };
+        uiHandler.post(thinkingTicker);
+    }
+
+    private void stopThinkingAnimation() {
+        if (thinkingTicker != null) {
+            uiHandler.removeCallbacks(thinkingTicker);
+            thinkingTicker = null;
+        }
+    }
+
+    private void scrollChatToBottom() {
+        contentScroll.post(() -> contentScroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    private String shorten(String s, int max) {
+        if (s == null) return "";
+        return s.length() <= max ? s : s.substring(0, max).trim() + "…";
     }
 
     // =========================
@@ -792,6 +965,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopThinkingAnimation();
+        uiHandler.removeCallbacksAndMessages(null);
         executor.shutdown();
     }
 }

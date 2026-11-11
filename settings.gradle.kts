@@ -17,5 +17,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "CampusSync"
+rootProject.name = "Kaleo"
 include(":app")

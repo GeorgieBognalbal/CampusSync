@@ -5,7 +5,7 @@ import android.app.Application;
 import com.example.campussync.sync.SyncScheduler;
 
 /** Runs once when the app process starts: kicks off background syncing. */
-public class CampusSyncApp extends Application {
+public class KaleoApp extends Application {
 
     @Override
     public void onCreate() {

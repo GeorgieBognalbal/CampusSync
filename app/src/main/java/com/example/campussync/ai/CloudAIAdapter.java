@@ -139,7 +139,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
             contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message + "\"";
         }
 
-        String prompt = "You are CampusSense Cloud AI, an intelligent assistant for students at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC). " +
+        String prompt = "You are Kaleo Cloud AI, an intelligent assistant for students at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC). " +
                 "Answer the student's question helpfully, accurately, and concisely in English or Taglish. " +
                 contextSnippet +
                 "\n\nStudent Question: " + userQuery;

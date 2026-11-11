@@ -55,7 +55,6 @@ public class AnnouncementSyncWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        Log.i(TAG, "Announcement sync worker started");
         Context context = getApplicationContext();
         AnnouncementDatabase database = AnnouncementDatabase.getInstance(context);
         AnnouncementDao dao = database.announcementDao();
@@ -105,10 +104,6 @@ public class AnnouncementSyncWorker extends Worker {
                     if (!deletions.isEmpty()) dao.deleteByIds(deletions);
                 });
                 if (!upserts.isEmpty()) SyncState.markRealData(context);
-
-                Log.i(TAG, "Committed " + upserts.size() + " real announcements; removed "
-                        + demoCount[0] + " demo announcements and processed "
-                        + deletions.size() + " deletions; Room count=" + dao.count());
 
                 saved += upserts.size();
                 removed += deletions.size();

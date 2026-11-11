@@ -127,7 +127,7 @@ def download_images(urls: list[str]) -> list[tuple[bytes, str]]:
     images: list[tuple[bytes, str]] = []
     for url in (urls or [])[:MAX_IMAGES]:
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (CampusSync extractor)"})
+            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Kaleo extractor)"})
             with urllib.request.urlopen(request, timeout=20) as response:
                 data = response.read(MAX_IMAGE_BYTES + 1)
                 mime = response.headers.get_content_type() or "image/jpeg"

@@ -20,7 +20,7 @@ import android.view.animation.OvershootInterpolator;
  *   0    – white tile pops in (scale 0 → 1 with overshoot)
  *   150  – sync arrows spin in (rotate -270° → 0°, fade + scale)
  *   700  – soft ripple pulses out from behind the logo
- *   650  – "CampusSync" slides up, tagline follows
+ *   650  – "Kaleo" slides up, tagline follows
  *   1300 – arrows do one more quick "sync" spin
  *   2200 – everything zooms out & fades, then MainActivity opens
  */

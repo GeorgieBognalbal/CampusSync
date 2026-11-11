@@ -1,5 +1,5 @@
 """
-CampusSync ingestion (owner: Jairelle).
+Kaleo ingestion (owner: Jairelle).
 
 Runs Geor's scraper and saves every post into the database, so the sync API
 can serve it without scraping on every request.

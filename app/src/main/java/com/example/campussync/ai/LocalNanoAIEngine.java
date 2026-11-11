@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * CampusSense Local Nano AI Engine
+ * Kaleo Local Nano AI Engine
  * 
  * Hack4Success 2026 - Track: Student Around Services (LSPU-SPCC)
  * Implements Path 3: Hybrid Edge-First Nano RAG with Offline Autonomy.
@@ -146,7 +146,7 @@ public class LocalNanoAIEngine {
 
         if (detectedIntent == Intent.IDENTITY) {
             return new NanoAIResult(
-                    "I am **CampusSense Local Nano AI** 🎓\n\n" +
+                    "I am **Kaleo Local Nano AI** 🎓\n\n" +
                     "Built for **Hack4Success 2026** (Track: Student Around Services, LSPU-SPCC).\n" +
                     "I run a lightweight Neuro-Symbolic RAG pipeline **100% locally on your phone** (<15ms latency, <20MB RAM, zero data cost) to give you instant, zero-hallucination answers from official campus announcements and the complete LSPU-SPCC Student Knowledge Base!",
                     Intent.IDENTITY, 0.99f, null, true
@@ -155,7 +155,7 @@ public class LocalNanoAIEngine {
 
         if (detectedIntent == Intent.GENERAL) {
             return new NanoAIResult(
-                    "Hello! I am CampusSense, your offline-first campus companion. Here's what you can ask me:\n\n" +
+                    "Hello! I am Kaleo, your offline-first campus companion. Here's what you can ask me:\n\n" +
                     "• 🌧️ **Class Suspensions**: *\"May pasok ba bukas?\"* or *\"Signal 1 suspension protocol\"*\n" +
                     "• 🎓 **Scholarships**: *\"TDP requirements & deadline\"* or *\"UniFAST / Free tuition policy\"*\n" +
                     "• 📚 **Academics & Grading**: *\"Ano passing grade?\"*, *\"Paano maayos ang INC?\"*, or *\"Dean's list GWA\"*\n" +
@@ -390,13 +390,13 @@ public class LocalNanoAIEngine {
         if (query.contains("umaga") || query.contains("morning")) {
             return "Magandang umaga! 🌅 Ready to help you start your campus day. Ask me about class suspensions, scholarship deadlines, or exam updates!";
         } else if (query.contains("hapon") || query.contains("afternoon")) {
-            return "Magandang hapon! ☀️ CampusSense is online and ready. What campus information or announcement do you need today?";
+            return "Magandang hapon! ☀️ Kaleo is online and ready. What campus information or announcement do you need today?";
         } else if (query.contains("gabi") || query.contains("evening")) {
             return "Magandang gabi! 🌙 Checking evening updates? Ask me if there are suspension advisories or exam schedules for tomorrow!";
         } else if (query.contains("kamusta") || query.contains("musta")) {
-            return "Mabuti naman! Ako si CampusSense, handang sumagot sa mga katanungan mo tungkol sa suspensions, scholarships, o exams sa LSPU-SPCC!";
+            return "Mabuti naman! Ako si Kaleo, handang sumagot sa mga katanungan mo tungkol sa suspensions, scholarships, o exams sa LSPU-SPCC!";
         }
-        return "Hello! I am CampusSense, your offline-first campus information assistant. How can I assist you with LSPU-SPCC updates today?";
+        return "Hello! I am Kaleo, your offline-first campus information assistant. How can I assist you with LSPU-SPCC updates today?";
     }
 
     /**

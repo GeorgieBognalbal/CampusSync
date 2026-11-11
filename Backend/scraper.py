@@ -44,7 +44,7 @@ SOURCES: list[dict[str, str]] = [
 
 REQUEST_TIMEOUT_SECONDS = 20
 MAX_POSTS_PER_SOURCE = 50
-USER_AGENT = "CampusSync/1.0 (+announcement-ingestion)"
+USER_AGENT = "Kaleo/1.0 (+announcement-ingestion)"
 
 
 class _HTMLContentParser(HTMLParser):

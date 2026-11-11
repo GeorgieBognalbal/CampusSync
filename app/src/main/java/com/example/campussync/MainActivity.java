@@ -97,6 +97,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        applySystemBarInsets();
 
         loadColors();
         cloudAdapter = new CloudAIAdapter(this);
@@ -143,6 +144,44 @@ public class MainActivity extends Activity {
         seedDemoAnnouncementsIfEmpty();
         showAnnouncements();
         watchSync();
+    }
+
+    /**
+     * Android 15+ draws the app behind the status bar, navigation bar and
+     * keyboard. Pad the root view so the header clears the status bar and the
+     * chat box always sits right above the keyboard.
+     */
+    private void applySystemBarInsets() {
+        // Before Android 15 the system already keeps us clear of the bars and keyboard
+        if (android.os.Build.VERSION.SDK_INT < 35) return;
+
+        View root = ((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
+        final int baseLeft = root.getPaddingLeft();
+        final int baseTop = root.getPaddingTop();
+        final int baseRight = root.getPaddingRight();
+        final int baseBottom = root.getPaddingBottom();
+
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                    android.view.WindowInsets.Type.systemBars()
+                            | android.view.WindowInsets.Type.displayCutout());
+            android.graphics.Insets ime = insets.getInsets(
+                    android.view.WindowInsets.Type.ime());
+            int top = bars.top;
+            int left = bars.left;
+            int right = bars.right;
+            int bottom = Math.max(bars.bottom, ime.bottom);
+            boolean keyboardOpen = ime.bottom > 0;
+
+            v.setPadding(baseLeft + left, baseTop + top,
+                    baseRight + right, baseBottom + bottom);
+
+            // Keep the latest message visible when the keyboard opens
+            if (keyboardOpen && currentTab == 1) scrollChatToBottom();
+
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 
     private void loadColors() {
@@ -1008,26 +1047,40 @@ public class MainActivity extends Activity {
     /** Three dots that bounce one after another, like a typing indicator. */
     private View typingDots() {
         stopThinkingAnimation();
+        // Fixed-height row with the dots resting near the bottom, so there is
+        // room above them to bounce without being clipped by the bubble.
         LinearLayout dots = row();
-        dots.setGravity(Gravity.CENTER_VERTICAL);
-        dots.setPadding(0, dp(4), 0, dp(4));
+        dots.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
+        dots.setPadding(dp(4), 0, dp(4), dp(4));
+        dots.setClipChildren(false);
+        dots.setClipToPadding(false);
+        dots.setMinimumWidth(dp(44));
 
         for (int i = 0; i < 3; i++) {
             View dot = new View(this);
             dot.setBackground(roundDrawable(MUTED, 4));
             LinearLayout.LayoutParams p = params(8, 8);
-            if (i > 0) p.leftMargin = dp(4);
+            if (i > 0) p.leftMargin = dp(6);
             dots.addView(dot, p);
 
-            ObjectAnimator bounce = ObjectAnimator.ofFloat(
-                    dot, View.TRANSLATION_Y, 0f, -dp(6));
-            bounce.setDuration(300);
+            // Bounce up 5dp and brighten, staggered so it reads as a wave
+            ObjectAnimator bounce = ObjectAnimator.ofPropertyValuesHolder(dot,
+                    android.animation.PropertyValuesHolder.ofFloat(
+                            View.TRANSLATION_Y, 0f, -dp(5)),
+                    android.animation.PropertyValuesHolder.ofFloat(
+                            View.ALPHA, 0.4f, 1f));
+            bounce.setDuration(350);
             bounce.setRepeatMode(ValueAnimator.REVERSE);
             bounce.setRepeatCount(ValueAnimator.INFINITE);
-            bounce.setStartDelay(i * 150L);
+            bounce.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+            bounce.setStartDelay(i * 130L);
+            dot.setAlpha(0.4f);
             bounce.start();
             thinkingAnimators.add(bounce);
         }
+
+        // 20dp tall: 8dp dot + 4dp bottom padding + 8dp headroom for the bounce
+        dots.setLayoutParams(new LinearLayout.LayoutParams(-2, dp(20)));
         return dots;
     }
 

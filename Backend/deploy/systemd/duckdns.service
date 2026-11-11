@@ -1,0 +1,9 @@
+[Unit]
+Description=Keep the DuckDNS name pointed at this server's IP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/campussync/campussync.env
+ExecStart=/usr/bin/curl -fsS "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN}&token=${DUCKDNS_TOKEN}&ip="

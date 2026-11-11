@@ -1,0 +1,5 @@
+# Caddy gets a free HTTPS certificate (Let's Encrypt) automatically
+# and forwards requests to gunicorn on port 5000.
+@DOMAIN@ {
+	reverse_proxy 127.0.0.1:5000
+}

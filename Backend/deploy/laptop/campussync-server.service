@@ -1,0 +1,14 @@
+[Unit]
+Description=CampusSync sync API on this laptop (gunicorn + Flask)
+After=network-online.target
+
+[Service]
+WorkingDirectory=@BACKEND@
+EnvironmentFile=%h/.config/campussync/campussync.env
+# 0.0.0.0 so your phone can reach it over Wi-Fi or adb reverse.
+ExecStart=@BACKEND@/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:5000 --access-logfile - server:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

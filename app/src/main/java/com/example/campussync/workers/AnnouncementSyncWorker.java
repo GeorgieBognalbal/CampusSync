@@ -198,6 +198,9 @@ public class AnnouncementSyncWorker extends Worker {
             conn.setReadTimeout(TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/json");
             conn.setRequestProperty("X-API-Key", BuildConfig.API_KEY);
+            // ngrok's free plan can answer with an HTML warning page instead of the API;
+            // this header tells it to pass the request straight to the server.
+            conn.setRequestProperty("ngrok-skip-browser-warning", "true");
 
             int code = conn.getResponseCode();
             Log.i(TAG, "Sync API HTTP " + code);

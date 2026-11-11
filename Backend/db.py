@@ -1,5 +1,5 @@
 """
-CampusSync backend database (owner: Jairelle).
+Kaleo backend database (owner: Jairelle).
 
 This is the ONLY file that talks to the database directly.
 Everyone else uses these functions:

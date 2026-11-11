@@ -21,8 +21,8 @@ db.init_db()
 def health_check():
     return jsonify({
         "status": "online",
-        "application": "CampusSync",
-        "message": "CampusSync backend is running!",
+        "application": "Kaleo",
+        "message": "Kaleo backend is running!",
         "server_time": db.now_ms(),
     }), 200
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         print("WARNING: default API key. Set CAMPUSSYNC_API_KEY before a real deploy.")
 
     print("===================================")
-    print("       CAMPUSSYNC BACKEND")
+    print("         KALEO BACKEND")
     print("===================================")
     print(f"Server running on port {port}")
     print("API: /api/announcements/sync")

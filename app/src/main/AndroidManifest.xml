@@ -7,7 +7,7 @@
     <!-- usesCleartextTraffic: lets the app reach the dev server over plain http
          (laptop / Wyse). Remove it once the server has an https address. -->
     <application
-        android:name=".CampusSyncApp"
+        android:name=".KaleoApp"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

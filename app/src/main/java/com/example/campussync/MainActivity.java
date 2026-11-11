@@ -210,7 +210,7 @@ public class MainActivity extends Activity {
                         new AnnouncementEntity(
                                 "demo-001",
                                 "LSPU Official",
-                                "Welcome to CampusSync! This is sample announcement data. Replace it with real posts after connecting your backend.",
+                                "Welcome to Kaleo! This is sample announcement data. Replace it with real posts after connecting your backend.",
                                 "https://www.facebook.com/LSPUOfficial",
                                 System.currentTimeMillis()
                         ),
@@ -814,7 +814,7 @@ public class MainActivity extends Activity {
 
         LinearLayout titleBlock = column();
         titleBlock.setPadding(dp(12), 0, 0, 0);
-        titleBlock.addView(text("CampusSync Assistant", 15, DARK, true));
+        titleBlock.addView(text("Kaleo Assistant", 15, DARK, true));
         TextView status = text(isOnline
                         ? "●  Answers from saved announcements"
                         : "●  Offline — answering from saved posts",
@@ -853,7 +853,7 @@ public class MainActivity extends Activity {
 
         if (chatHistory.isEmpty()) {
             chatHistory.add(new ChatMessage(
-                    "Hi! 👋 Ako si CampusSync Assistant. Itanong mo lang ang tungkol sa klase, exams, o scholarships — hahanapin ko sa mga official announcements.",
+                    "Hi! 👋 Ako si Kaleo. Itanong mo lang ang tungkol sa klase, exams, o scholarships — hahanapin ko sa mga official announcements.",
                     ChatMessage.Sender.BOT));
         }
         boolean userHasAsked = false;
@@ -1566,8 +1566,11 @@ public class MainActivity extends Activity {
             box.setBackground(roundDrawable(0x26FFFFFF, 14));
             box.setPadding(0, dp(12), 0, dp(12));
             values[i] = text("0", 26, WHITE, true);
+            values[i].setGravity(Gravity.CENTER);
             box.addView(values[i]);
-            box.addView(text(units[i], 10, 0xFFDCE4FF, true));
+            TextView unit = text(units[i], 10, 0xFFDCE4FF, true);
+            unit.setGravity(Gravity.CENTER);
+            box.addView(unit);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
             if (i > 0) lp.leftMargin = dp(8);
             boxes.addView(box, lp);
@@ -1629,8 +1632,13 @@ public class MainActivity extends Activity {
         date.setGravity(Gravity.CENTER);
         date.setBackground(roundDrawable(bgc, 12));
         String[] mon = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-        date.addView(text(mon[item.m], 10, fg, true));
-        date.addView(text(String.valueOf(item.d), 20, fg, true));
+        TextView monthText = text(mon[item.m], 10, fg, true);
+        monthText.setGravity(Gravity.CENTER);
+        date.addView(monthText);
+        TextView dayText = text(String.valueOf(item.d), 20, fg, true);
+        dayText.setGravity(Gravity.CENTER);
+        dayText.setIncludeFontPadding(false);
+        date.addView(dayText);
         card.addView(date, params(56, 56));
 
         LinearLayout info = column();
@@ -1761,7 +1769,7 @@ public class MainActivity extends Activity {
             v.put(android.provider.CalendarContract.Events.DESCRIPTION,
                     item.message + "\n\nSource: " + item.pageName
                             + (item.permalink != null ? "\n" + item.permalink : "")
-                            + "\n\nAdded by CampusSync");
+                            + "\n\nAdded by Kaleo");
             v.put(android.provider.CalendarContract.Events.ALL_DAY, 1);
             v.put(android.provider.CalendarContract.Events.EVENT_TIMEZONE, "UTC");
             v.put(android.provider.CalendarContract.Events.DTSTART, utcMillis(item.y, item.m, item.d));

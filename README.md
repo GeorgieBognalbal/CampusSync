@@ -1,2 +1,2 @@
-# CampusSync
+# Kaleo
 

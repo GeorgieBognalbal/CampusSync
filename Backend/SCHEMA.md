@@ -1,4 +1,4 @@
-# CampusSync Announcement Schema
+# Kaleo Announcement Schema
 
 Every part of the pipeline uses these exact field names and formats.
 Owner: Jairelle. Talk to her before changing anything here.

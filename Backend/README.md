@@ -1,4 +1,4 @@
-# CampusSync Backend
+# Kaleo Backend
 
 ```
 scraper.py       (Geor)      FetchRSS feeds -> raw posts

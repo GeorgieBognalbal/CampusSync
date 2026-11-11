@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * CampusSense Local Nano AI Engine
+ * Kaleo Local Nano AI Engine
  * 
  * Hack4Success 2026 - Track: Student Around Services (LSPU-SPCC)
  * Implements Path 3: Hybrid Edge-First Nano RAG with Offline Autonomy.
@@ -97,7 +97,7 @@ public class LocalNanoAIEngine {
 
         if (detectedIntent == Intent.GENERAL) {
             return new NanoAIResult(
-                    "Hello! I am CampusSense, your offline-first campus information assistant. You can ask me about class suspensions, scholarship deadlines (like TDP/CHED), midterm/final exam schedules, or campus events anytime—even in Airplane Mode!",
+                    "Hello! I am Kaleo, your offline-first campus information assistant. You can ask me about class suspensions, scholarship deadlines (like TDP/CHED), midterm/final exam schedules, or campus events anytime—even in Airplane Mode!",
                     Intent.GENERAL, 0.98f, null, true
             );
         }

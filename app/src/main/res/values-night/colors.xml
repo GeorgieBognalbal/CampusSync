@@ -1,0 +1,36 @@
+<resources>
+    <color name="brand_primary">#5B7CFA</color>
+    <color name="brand_dark">#3F5FD8</color>
+
+    <color name="screen_background">#0F1422</color>
+    <color name="card_background">#181F31</color>
+    <color name="card_border">#263049</color>
+    <color name="divider">#232B40</color>
+    <color name="input_border">#2A3350</color>
+    <color name="source_card_bg">#1D2539</color>
+    <color name="source_card_border">#2C3652</color>
+    <color name="skeleton">#252D42</color>
+
+    <color name="text_primary">#EEF1F8</color>
+    <color name="text_body">#C5CCDB</color>
+    <color name="text_secondary">#8E97AD</color>
+    <color name="status_text">#5FD39C</color>
+
+    <color name="soft_blue">#1F2A4A</color>
+    <color name="soft_green">#17352A</color>
+    <color name="soft_orange">#3A2A1A</color>
+    <color name="pill_pressed">#2A3A6E</color>
+    <color name="pill_stroke">#2E3B66</color>
+    <color name="nav_pill">#26335C</color>
+
+    <color name="cat_suspension">#FF8A80</color>
+    <color name="cat_suspension_bg">#3A1C1F</color>
+    <color name="cat_exam">#FFB866</color>
+    <color name="cat_exam_bg">#3A2A16</color>
+    <color name="cat_scholarship">#6FD9A3</color>
+    <color name="cat_scholarship_bg">#163326</color>
+    <color name="cat_event">#B79CFF</color>
+    <color name="cat_event_bg">#2A2145</color>
+    <color name="cat_general">#8FA6FF</color>
+    <color name="cat_general_bg">#1F2A4A</color>
+</resources>

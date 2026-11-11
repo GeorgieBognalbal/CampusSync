@@ -69,6 +69,23 @@
         android:layout_height="1dp"
         android:background="@color/divider" />
 
+    <!-- Offline indicator: shown when there is no internet -->
+    <TextView
+        android:id="@+id/offlineBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/soft_orange"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:text="You're offline"
+        android:textColor="@color/cat_exam"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <!-- Pull down to refresh -->
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"
@@ -207,27 +224,27 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/navSources"
+            android:id="@+id/navCalendar"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:onClick="onSourcesClick"
+            android:onClick="onCalendarClick"
             android:orientation="vertical">
             <ImageView
-                android:id="@+id/navSourcesIcon"
+                android:id="@+id/navCalendarIcon"
                 android:layout_width="56dp"
                 android:layout_height="32dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
-                android:contentDescription="Sources"
-                android:src="@drawable/ic_nav_sources" />
+                android:contentDescription="Calendar"
+                android:src="@drawable/ic_nav_calendar" />
             <TextView
-                android:id="@+id/navSourcesLabel"
+                android:id="@+id/navCalendarLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Sources"
+                android:text="Calendar"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

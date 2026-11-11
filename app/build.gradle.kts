@@ -12,7 +12,6 @@ val localProps = Properties().apply {
 }
 val apiBaseUrl = localProps.getProperty("campussync.apiBaseUrl", "http://localhost:5000")
 val apiKey = localProps.getProperty("campussync.apiKey", "dev-key-change-me")
-val geminiApiKey = localProps.getProperty("campussync.geminiApiKey", "")
 
 android {
     namespace = "com.example.campussync"
@@ -27,7 +26,6 @@ android {
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "API_KEY", "\"$apiKey\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildFeatures {

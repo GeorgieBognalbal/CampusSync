@@ -113,12 +113,12 @@ public class MainActivity extends Activity {
         navIcons = new ImageView[]{
                 findViewById(R.id.navPostsIcon),
                 findViewById(R.id.navChatIcon),
-                findViewById(R.id.navSourcesIcon)
+                findViewById(R.id.navCalendarIcon)
         };
         navLabels = new TextView[]{
                 findViewById(R.id.navPostsLabel),
                 findViewById(R.id.navChatLabel),
-                findViewById(R.id.navSourcesLabel)
+                findViewById(R.id.navCalendarLabel)
         };
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
@@ -140,6 +140,7 @@ public class MainActivity extends Activity {
             refreshAnnouncements();
         });
 
+        startNetworkWatch();
         updateStatus();
         seedDemoAnnouncementsIfEmpty();
         showAnnouncements();
@@ -267,8 +268,8 @@ public class MainActivity extends Activity {
         showChat();
     }
 
-    public void onSourcesClick(View view) {
-        showSources();
+    public void onCalendarClick(View view) {
+        showCalendar();
     }
 
     private void setActiveTab(int tab) {
@@ -288,6 +289,7 @@ public class MainActivity extends Activity {
 
         chatInputBar.setVisibility(tab == 1 ? View.VISIBLE : View.GONE);
         if (tab != 1) stopThinkingAnimation();
+        if (tab != 2) stopCountdown();
 
         // Pull-to-refresh only makes sense on the feed
         swipeRefresh.setEnabled(tab == 0);
@@ -324,13 +326,17 @@ public class MainActivity extends Activity {
                 swipeRefresh.setRefreshing(false);
                 updateStatus();
                 if (currentTab == 0) showAnnouncements();
+                if (calendarSyncEnabled()) syncAllToPhoneCalendar(false);
+                else if (currentTab == 2) showCalendar();
             }
         });
     }
 
     private void updateStatus() {
         long last = SyncState.getLastSyncTime(this);
-        if (last == 0) {
+        if (!isOnline) {
+            statusText.setText("Offline");
+        } else if (last == 0) {
             statusText.setText("Not synced yet");
         } else {
             String when = System.currentTimeMillis() - last < DateUtils.MINUTE_IN_MILLIS
@@ -778,12 +784,11 @@ public class MainActivity extends Activity {
     // =========================
 
     private static final String[] SUGGESTIONS = {
-            "Magandang umaga! Ano kaya mo?",
             "May pasok ba bukas sa LSPU?",
-            "Kailan deadline ng scholarship?",
-            "Midterm exam schedule at permit",
-            "Saan ang OSAS at Registrar?",
-            "Upcoming campus events"
+            "Kailan deadline ng TDP scholarship?",
+            "Midterm exam schedule",
+            "Hack4Success intramurals",
+            "Unknown question"
     };
 
     /** Kept across tab switches so the conversation isn't lost. */
@@ -810,14 +815,37 @@ public class MainActivity extends Activity {
         LinearLayout titleBlock = column();
         titleBlock.setPadding(dp(12), 0, 0, 0);
         titleBlock.addView(text("CampusSync Assistant", 15, DARK, true));
-        TextView status = text("●  Answers from saved announcements",
-                11, SUCCESS, true);
+        TextView status = text(isOnline
+                        ? "●  Answers from saved announcements"
+                        : "●  Offline — answering from saved posts",
+                11, isOnline ? SUCCESS : getColor(R.color.cat_exam), true);
         LinearLayout.LayoutParams sp = params(-2, -2);
         sp.topMargin = dp(4);
         titleBlock.addView(status, sp);
-        header.addView(titleBlock);
+        header.addView(titleBlock, new LinearLayout.LayoutParams(0, -2, 1));
 
-        addView(contentContainer, header, 0, 16);
+        // Sources button: shows which pages the assistant reads from
+        TextView sourcesButton = text("Sources ▾", 12, BLUE, true);
+        sourcesButton.setBackgroundResource(R.drawable.suggestion_pill);
+        sourcesButton.setPadding(dp(12), dp(8), dp(12), dp(8));
+        header.addView(sourcesButton);
+
+        addView(contentContainer, header, 0, 12);
+
+        LinearLayout sourcesPanel = buildSourcesPanel();
+        sourcesPanel.setVisibility(View.GONE);
+        addView(contentContainer, sourcesPanel, 0, 16);
+
+        sourcesButton.setOnClickListener(v -> {
+            boolean open = sourcesPanel.getVisibility() == View.VISIBLE;
+            sourcesButton.setText(open ? "Sources ▾" : "Sources ▴");
+            if (open) {
+                sourcesPanel.setVisibility(View.GONE);
+            } else {
+                sourcesPanel.setVisibility(View.VISIBLE);
+                animateIn(sourcesPanel, 0);
+            }
+        });
 
         // Messages
         messageList = column();
@@ -939,7 +967,7 @@ public class MainActivity extends Activity {
 
     /** Runs on the background executor: evaluates query using LocalNanoAIEngine Edge-First RAG with Cloud Fallback. */
     private ChatMessage buildAnswer(String question) {
-        List<AnnouncementEntity> allPosts = announcementRepository.getAll();
+        List<AnnouncementEntity> allPosts = visibleAnnouncements(announcementRepository.getAll());
         long start = System.nanoTime();
         LocalNanoAIEngine.NanoAIResult result =
                 nanoAIEngine.processHybridQuery(question, allPosts, cloudAdapter);
@@ -1129,7 +1157,7 @@ public class MainActivity extends Activity {
     }
 
     // =========================
-    // SOURCES
+    // SOURCES (shown inside the AI chat)
     // =========================
 
     private static final String[][] SOURCES = {
@@ -1141,52 +1169,40 @@ public class MainActivity extends Activity {
             R.color.soft_blue, R.color.soft_green, R.color.soft_orange
     };
 
-    private void showSources() {
-        setActiveTab(2);
-        contentContainer.removeAllViews();
+    /** Collapsible panel under the chat header listing the pages the assistant reads. */
+    private LinearLayout buildSourcesPanel() {
+        LinearLayout panel = card();
+        panel.setPadding(dp(16), dp(16), dp(16), dp(16));
 
-        addText("YOUR INFORMATION FEED",
-                11, BLUE, true, 0, 8);
-
-        addText("Trusted campus sources.",
-                26, DARK, true, 0, 8);
+        panel.addView(text("SOURCES THE ASSISTANT USES", 10, BLUE, true));
 
         Set<String> unfollowed = prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>());
         int following = SOURCES.length - countUnfollowed(unfollowed);
 
-        TextView countText = text(
-                "Following " + following + " of " + SOURCES.length
-                        + ". Turn a source off to hide its posts from your feed.",
-                13, MUTED, false);
+        TextView countText = text(followingText(following), 12, MUTED, false);
         LinearLayout.LayoutParams ctp = params(-1, -2);
-        ctp.bottomMargin = dp(16);
-        contentContainer.addView(countText, ctp);
+        ctp.topMargin = dp(4);
+        ctp.bottomMargin = dp(12);
+        panel.addView(countText, ctp);
 
         for (int i = 0; i < SOURCES.length; i++) {
-            addSourceCard(SOURCES[i][0], SOURCES[i][1], SOURCES[i][2],
+            addSourceCard(panel, SOURCES[i][0], SOURCES[i][1], SOURCES[i][2],
                     SOURCES[i][3], getColor(SOURCE_TINTS[i]), countText);
         }
 
-        LinearLayout note = card();
-        note.setPadding(dp(16), dp(16), dp(16), dp(16));
-        note.setBackground(roundDrawable(PALE, 16));
+        TextView note = text(
+                "Posts are synced from these pages and saved on this device, so answers still work offline.",
+                11, MUTED, false);
+        LinearLayout.LayoutParams np = params(-1, -2);
+        np.topMargin = dp(4);
+        panel.addView(note, np);
 
-        note.addView(text(
-                "HOW SYNC WORKS", 10, BLUE, true
-        ));
+        return panel;
+    }
 
-        TextView detail = text(
-                "Posts are downloaded by the backend and stored locally. Once cached, you can still browse and search them without an internet connection. Pull down on the Feed to refresh.",
-                12, BODY, false
-        );
-
-        LinearLayout.LayoutParams noteParams =
-                params(-1, -2);
-
-        noteParams.topMargin = dp(8);
-        note.addView(detail, noteParams);
-
-        addView(contentContainer, note, 8, 8);
+    private String followingText(int following) {
+        return "Following " + following + " of " + SOURCES.length
+                + ". Turn a source off to hide its posts from the feed, calendar and answers.";
     }
 
     private int countUnfollowed(Set<String> unfollowed) {
@@ -1196,6 +1212,7 @@ public class MainActivity extends Activity {
     }
 
     private void addSourceCard(
+            LinearLayout parent,
             String initial,
             String name,
             String description,
@@ -1203,17 +1220,18 @@ public class MainActivity extends Activity {
             int tint,
             TextView countText) {
 
-        LinearLayout source = card();
-        source.setPadding(dp(16), dp(12), dp(12), dp(12));
+        LinearLayout source = column();
+        source.setBackgroundResource(R.drawable.source_card_background);
+        source.setPadding(dp(12), dp(12), dp(8), dp(12));
 
         LinearLayout line = row();
         line.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView avatar = text(initial, 17, BLUE, true);
+        TextView avatar = text(initial, 15, BLUE, true);
         avatar.setGravity(Gravity.CENTER);
         avatar.setBackground(roundDrawable(tint, 12));
 
-        line.addView(avatar, params(44, 44));
+        line.addView(avatar, params(40, 40));
 
         LinearLayout details = column();
         details.setPadding(dp(12), 0, dp(8), 0);
@@ -1247,9 +1265,7 @@ public class MainActivity extends Activity {
                     prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>()));
             if (checked) set.remove(name); else set.add(name);
             prefs.edit().putStringSet(KEY_UNFOLLOWED, set).apply();
-            int following = SOURCES.length - countUnfollowed(set);
-            countText.setText("Following " + following + " of " + SOURCES.length
-                    + ". Turn a source off to hide its posts from your feed.");
+            countText.setText(followingText(SOURCES.length - countUnfollowed(set)));
             source.animate().alpha(checked ? 1f : 0.6f).setDuration(150);
         });
         if (!follow.isChecked()) source.setAlpha(0.6f);
@@ -1257,7 +1273,673 @@ public class MainActivity extends Activity {
 
         source.addView(line);
 
-        addView(contentContainer, source, 0, 12);
+        addView(parent, source, 0, 8);
+    }
+
+    // =========================
+    // CALENDAR
+    // =========================
+
+    private static final String KEY_CAL_SYNC = "calendar_sync_enabled";
+    private static final String KEY_CAL_EVENT_PREFIX = "cal_event_";
+    private static final int REQ_CALENDAR = 42;
+
+    /** A dated item pulled out of an announcement. Dates are local, all-day. */
+    private static class CalendarItem {
+        String postId, title, pageName, permalink, message;
+        Category category;
+        boolean deadline;
+        int y, m, d;        // start date (m is 0-based like java.util.Calendar)
+        int ey, em, ed;     // end date (same as start for single-day items)
+
+        long startMillis() { return localMillis(y, m, d); }
+        long endMillisExclusive() { return localMillis(ey, em, ed) + DateUtils.DAY_IN_MILLIS; }
+        boolean multiDay() { return y != ey || m != em || d != ed; }
+    }
+
+    private static long localMillis(int y, int m, int d) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.clear();
+        c.set(y, m, d, 0, 0, 0);
+        return c.getTimeInMillis();
+    }
+
+    private static long utcMillis(int y, int m, int d) {
+        java.util.Calendar c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        c.clear();
+        c.set(y, m, d, 0, 0, 0);
+        return c.getTimeInMillis();
+    }
+
+    private static final String MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec";
+    private static final java.util.regex.Pattern MONTH_DAY = java.util.regex.Pattern.compile(
+            "\\b(" + MONTHS + ")[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?"
+                    + "(?:\\s*(?:to|until|-|–|—)\\s*(?:(" + MONTHS + ")[a-z]*\\.?\\s+)?(\\d{1,2})(?:st|nd|rd|th)?)?",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern WEEKDAY = java.util.regex.Pattern.compile(
+            "\\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\\b",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern TOMORROW = java.util.regex.Pattern.compile(
+            "\\b(tomorrow|bukas)\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private static int monthIndex(String s) {
+        String k = s.toLowerCase(Locale.ROOT);
+        if (k.startsWith("sep")) return 8;
+        String[] names = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+        for (int i = 0; i < names.length; i++) if (k.startsWith(names[i])) return i;
+        return -1;
+    }
+
+    /** Finds a date in the post ("Nov 24 to Nov 28", "before Dec 5", "this Friday", "tomorrow"). */
+    private CalendarItem extractCalendarItem(AnnouncementEntity a) {
+        if (a.message == null) return null;
+        String msg = a.message;
+
+        java.util.Calendar posted = java.util.Calendar.getInstance();
+        posted.setTimeInMillis(a.createdAt);
+
+        CalendarItem item = new CalendarItem();
+        java.util.regex.Matcher md = MONTH_DAY.matcher(msg);
+
+        if (md.find()) {
+            int m = monthIndex(md.group(1));
+            int d = Integer.parseInt(md.group(2));
+            if (m < 0 || d < 1 || d > 31) return null;
+            int y = posted.get(java.util.Calendar.YEAR);
+            // A date far before the post date means next year (e.g. posted in Dec about "Jan 5")
+            if (localMillis(y, m, d) < a.createdAt - 60L * DateUtils.DAY_IN_MILLIS) y++;
+            item.y = y; item.m = m; item.d = d;
+
+            if (md.group(4) != null) {
+                int em = md.group(3) != null ? monthIndex(md.group(3)) : m;
+                int ed = Integer.parseInt(md.group(4));
+                int ey = y;
+                if (em < m || (em == m && ed < d)) {
+                    if (md.group(3) == null) em = (m + 1) % 12;   // "Nov 28 - 2" → Dec 2
+                    if (em < m) ey = y + 1;
+                }
+                item.ey = ey; item.em = em; item.ed = ed;
+            } else {
+                item.ey = y; item.em = m; item.ed = d;
+            }
+        } else {
+            java.util.Calendar c = (java.util.Calendar) posted.clone();
+            java.util.regex.Matcher wd = WEEKDAY.matcher(msg);
+            if (TOMORROW.matcher(msg).find()) {
+                c.add(java.util.Calendar.DAY_OF_MONTH, 1);
+            } else if (wd.find()) {
+                String[] days = {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"};
+                int target = Arrays.asList(days).indexOf(wd.group(1).toLowerCase(Locale.ROOT)) + 1;
+                int diff = (target - c.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7;
+                c.add(java.util.Calendar.DAY_OF_MONTH, diff == 0 ? 7 : diff);
+            } else {
+                return null;
+            }
+            item.y = item.ey = c.get(java.util.Calendar.YEAR);
+            item.m = item.em = c.get(java.util.Calendar.MONTH);
+            item.d = item.ed = c.get(java.util.Calendar.DAY_OF_MONTH);
+        }
+
+        String lower = msg.toLowerCase(Locale.ROOT);
+        item.postId = a.facebookPostId;
+        item.pageName = a.pageName;
+        item.permalink = a.permalink;
+        item.message = msg;
+        item.category = Category.of(msg);
+        item.deadline = lower.contains("before") || lower.contains("deadline")
+                || lower.contains("until") || lower.contains("submit");
+        item.title = titleFor(msg, item);
+        return item;
+    }
+
+    private String titleFor(String msg, CalendarItem item) {
+        String t = msg.replaceFirst("(?i)^\\s*sample:\\s*", "");
+        // Cut at the first sentence or dash
+        for (String sep : new String[]{" — ", " - ", ". ", "! ", ": "}) {
+            int i = t.indexOf(sep);
+            if (i > 8) t = t.substring(0, i);
+        }
+        t = shorten(t.trim(), 60);
+        if (item.deadline && !t.toLowerCase(Locale.ROOT).contains("deadline")) t = "Deadline: " + t;
+        return t;
+    }
+
+    /** Upcoming dated items from followed sources, soonest first. Runs on the executor. */
+    private List<CalendarItem> loadUpcomingItems() {
+        List<CalendarItem> items = new ArrayList<>();
+        long today = localMillis(
+                java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
+                java.util.Calendar.getInstance().get(java.util.Calendar.MONTH),
+                java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH));
+        for (AnnouncementEntity a : visibleAnnouncements(announcementRepository.getAll())) {
+            CalendarItem item = extractCalendarItem(a);
+            if (item != null && item.endMillisExclusive() > today) items.add(item);
+        }
+        items.sort((x, y) -> Long.compare(x.startMillis(), y.startMillis()));
+        return items;
+    }
+
+    private Runnable countdownTicker;
+
+    private void showCalendar() {
+        setActiveTab(2);
+        contentContainer.removeAllViews();
+
+        addText("YOUR SCHEDULE", 11, BLUE, true, 0, 8);
+        addText("Upcoming dates.", 26, DARK, true, 0, 4);
+        addText("Exams, events and deadlines found in your campus announcements.",
+                13, MUTED, false, 0, 16);
+
+        LinearLayout countdownHolder = column();
+        contentContainer.addView(countdownHolder, params(-1, -2));
+
+        // Phone calendar sync toggle
+        LinearLayout syncRow = card();
+        syncRow.setOrientation(LinearLayout.HORIZONTAL);
+        syncRow.setGravity(Gravity.CENTER_VERTICAL);
+        syncRow.setPadding(dp(16), dp(12), dp(12), dp(12));
+
+        TextView calIcon = text("📅", 18, DARK, false);
+        calIcon.setGravity(Gravity.CENTER);
+        calIcon.setBackground(roundDrawable(PALE, 12));
+        syncRow.addView(calIcon, params(40, 40));
+
+        LinearLayout syncText = column();
+        syncText.setPadding(dp(12), 0, dp(8), 0);
+        syncText.addView(text("Sync to phone calendar", 14, DARK, true));
+        TextView syncSub = text(calendarSyncEnabled()
+                        ? "On • new dates are added automatically"
+                        : "Adds these dates to Google Calendar",
+                11, MUTED, false);
+        LinearLayout.LayoutParams ssp = params(-2, -2);
+        ssp.topMargin = dp(4);
+        syncText.addView(syncSub, ssp);
+        syncRow.addView(syncText, new LinearLayout.LayoutParams(0, -2, 1));
+
+        Switch syncSwitch = new Switch(this);
+        syncSwitch.setChecked(calendarSyncEnabled());
+        syncSwitch.setContentDescription("Sync to phone calendar");
+        syncSwitch.setOnCheckedChangeListener((b, checked) -> {
+            if (checked && !hasCalendarPermission()) {
+                b.setChecked(false);
+                requestPermissions(new String[]{
+                        android.Manifest.permission.READ_CALENDAR,
+                        android.Manifest.permission.WRITE_CALENDAR}, REQ_CALENDAR);
+                return;
+            }
+            prefs.edit().putBoolean(KEY_CAL_SYNC, checked).apply();
+            if (checked) syncAllToPhoneCalendar(true);
+            else showCalendar();
+        });
+        syncRow.addView(syncSwitch);
+        addView(contentContainer, syncRow, 0, 20);
+
+        TextView listLabel = text("Coming up", 18, DARK, true);
+        LinearLayout.LayoutParams llp = params(-1, -2);
+        llp.bottomMargin = dp(12);
+        contentContainer.addView(listLabel, llp);
+
+        LinearLayout list = column();
+        contentContainer.addView(list, params(-1, -2));
+        showSkeletons(list);
+
+        executor.execute(() -> {
+            List<CalendarItem> items = loadUpcomingItems();
+            Set<String> synced = syncedPostIds(items);
+
+            uiHandler.postDelayed(() -> {
+                if (isFinishing() || currentTab != 2) return;
+                stopSkeletons();
+                list.removeAllViews();
+
+                renderCountdown(countdownHolder, items);
+
+                if (items.isEmpty()) {
+                    list.addView(emptyState("No upcoming dates yet",
+                            "When an announcement mentions an exam, event or deadline, it shows up here."));
+                    return;
+                }
+                int i = 0;
+                for (CalendarItem item : items) {
+                    View row = buildCalendarRow(item, synced.contains(item.postId));
+                    addView(list, row, 0, 12);
+                    animateIn(row, i++ * 40L);
+                }
+            }, 200);
+        });
+    }
+
+    // ---------- exam countdown ----------
+
+    private void renderCountdown(LinearLayout holder, List<CalendarItem> items) {
+        stopCountdown();
+        holder.removeAllViews();
+
+        CalendarItem exam = null;
+        for (CalendarItem it : items) {
+            if (it.category == Category.EXAM) { exam = it; break; }
+        }
+
+        LinearLayout card = column();
+        GradientDrawable bg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF4A6FF0, 0xFF1E3790});
+        bg.setCornerRadius(dp(20));
+        card.setBackground(bg);
+        card.setPadding(dp(20), dp(16), dp(20), dp(20));
+
+        card.addView(text("EXAM COUNTDOWN", 10, 0xFFDCE4FF, true));
+
+        if (exam == null) {
+            TextView none = text("No upcoming exams found 🎉", 18, WHITE, true);
+            LinearLayout.LayoutParams p = params(-1, -2);
+            p.topMargin = dp(8);
+            card.addView(none, p);
+            card.addView(text("We'll count down as soon as an exam schedule is posted.",
+                    12, 0xFFE5EAFF, false));
+            addView(holder, card, 0, 16);
+            return;
+        }
+
+        TextView title = text(exam.title, 16, WHITE, true);
+        title.setMaxLines(2);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams tp = params(-1, -2);
+        tp.topMargin = dp(8);
+        card.addView(title, tp);
+
+        TextView when = text(dateLabel(exam) + "  •  " + exam.pageName, 12, 0xFFE5EAFF, false);
+        LinearLayout.LayoutParams wp = params(-1, -2);
+        wp.topMargin = dp(4);
+        card.addView(when, wp);
+
+        LinearLayout boxes = row();
+        LinearLayout.LayoutParams bp = params(-1, -2);
+        bp.topMargin = dp(16);
+        card.addView(boxes, bp);
+
+        TextView[] values = new TextView[3];
+        String[] units = {"DAYS", "HOURS", "MINS"};
+        for (int i = 0; i < 3; i++) {
+            LinearLayout box = column();
+            box.setGravity(Gravity.CENTER_HORIZONTAL);
+            box.setBackground(roundDrawable(0x26FFFFFF, 14));
+            box.setPadding(0, dp(12), 0, dp(12));
+            values[i] = text("0", 26, WHITE, true);
+            box.addView(values[i]);
+            box.addView(text(units[i], 10, 0xFFDCE4FF, true));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+            if (i > 0) lp.leftMargin = dp(8);
+            boxes.addView(box, lp);
+        }
+
+        TextView ongoing = text("", 13, WHITE, true);
+        LinearLayout.LayoutParams op = params(-1, -2);
+        op.topMargin = dp(12);
+        card.addView(ongoing, op);
+
+        final CalendarItem target = exam;
+        card.setOnClickListener(v -> openUrl(target.permalink));
+
+        countdownTicker = new Runnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+                long left = target.startMillis() - now;
+                if (left <= 0) {
+                    boxes.setVisibility(View.GONE);
+                    ongoing.setText("Exams are ongoing — good luck! 🍀");
+                    return;
+                }
+                values[0].setText(String.valueOf(left / DateUtils.DAY_IN_MILLIS));
+                values[1].setText(String.valueOf((left / DateUtils.HOUR_IN_MILLIS) % 24));
+                values[2].setText(String.valueOf((left / DateUtils.MINUTE_IN_MILLIS) % 60));
+                ongoing.setText(left < 3 * DateUtils.DAY_IN_MILLIS
+                        ? "Almost there — time for a final review! 📚" : "");
+                ongoing.setVisibility(ongoing.getText().length() == 0 ? View.GONE : View.VISIBLE);
+                uiHandler.postDelayed(this, 30_000);
+            }
+        };
+        countdownTicker.run();
+
+        addView(holder, card, 0, 16);
+        animateIn(card, 0);
+    }
+
+    private void stopCountdown() {
+        if (countdownTicker != null) {
+            uiHandler.removeCallbacks(countdownTicker);
+            countdownTicker = null;
+        }
+    }
+
+    // ---------- calendar rows ----------
+
+    private View buildCalendarRow(CalendarItem item, boolean inPhoneCalendar) {
+        LinearLayout card = card();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(12), dp(12), dp(12), dp(12));
+
+        int fg = getColor(item.category.fgRes);
+        int bgc = getColor(item.category.bgRes);
+
+        // Date block
+        LinearLayout date = column();
+        date.setGravity(Gravity.CENTER);
+        date.setBackground(roundDrawable(bgc, 12));
+        String[] mon = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+        date.addView(text(mon[item.m], 10, fg, true));
+        date.addView(text(String.valueOf(item.d), 20, fg, true));
+        card.addView(date, params(56, 56));
+
+        LinearLayout info = column();
+        info.setPadding(dp(12), 0, dp(8), 0);
+
+        TextView title = text(item.title, 14, DARK, true);
+        title.setMaxLines(2);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        info.addView(title);
+
+        TextView sub = text(dateLabel(item) + "  •  " + untilLabel(item), 11, MUTED, false);
+        LinearLayout.LayoutParams sp = params(-2, -2);
+        sp.topMargin = dp(4);
+        info.addView(sub, sp);
+
+        TextView tag = text(item.category.tagLabel.toUpperCase(Locale.ROOT) + "  •  " + item.pageName,
+                9, fg, true);
+        tag.setLetterSpacing(0.04f);
+        LinearLayout.LayoutParams tgp = params(-2, -2);
+        tgp.topMargin = dp(4);
+        info.addView(tag, tgp);
+
+        card.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
+
+        // Add to calendar
+        TextView add = text(inPhoneCalendar ? "✓" : "＋", 16,
+                inPhoneCalendar ? SUCCESS : BLUE, true);
+        add.setGravity(Gravity.CENTER);
+        add.setBackground(roundDrawable(inPhoneCalendar ? getColor(R.color.soft_green) : PALE, 20));
+        add.setContentDescription(inPhoneCalendar ? "In your calendar" : "Add to calendar");
+        add.setOnClickListener(v -> {
+            if (hasCalendarPermission()) {
+                executor.execute(() -> {
+                    boolean ok = upsertPhoneEvent(item);
+                    runOnUiThread(() -> {
+                        toast(ok ? "Added to your calendar" : "Couldn't find a calendar on this phone");
+                        if (ok) {
+                            add.setText("✓");
+                            add.setTextColor(SUCCESS);
+                            add.setBackground(roundDrawable(getColor(R.color.soft_green), 20));
+                        }
+                    });
+                });
+            } else {
+                openCalendarInsert(item);   // works without permission
+            }
+        });
+        card.addView(add, params(40, 40));
+
+        card.setOnClickListener(v -> openUrl(item.permalink));
+        return card;
+    }
+
+    private String dateLabel(CalendarItem item) {
+        String[] mon = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        String start = mon[item.m] + " " + item.d;
+        if (!item.multiDay()) return start;
+        return start + " – " + (item.em == item.m ? "" : mon[item.em] + " ") + item.ed;
+    }
+
+    private String untilLabel(CalendarItem item) {
+        long today = localMillis(
+                java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
+                java.util.Calendar.getInstance().get(java.util.Calendar.MONTH),
+                java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH));
+        long days = Math.round((item.startMillis() - today) / (double) DateUtils.DAY_IN_MILLIS);
+        if (days < 0) return "Ongoing";
+        if (days == 0) return "Today";
+        if (days == 1) return "Tomorrow";
+        return "in " + days + " days";
+    }
+
+    // ---------- phone calendar sync ----------
+
+    private boolean calendarSyncEnabled() {
+        return prefs.getBoolean(KEY_CAL_SYNC, false) && hasCalendarPermission();
+    }
+
+    private boolean hasCalendarPermission() {
+        return checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(android.Manifest.permission.READ_CALENDAR)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQ_CALENDAR) return;
+        if (hasCalendarPermission()) {
+            prefs.edit().putBoolean(KEY_CAL_SYNC, true).apply();
+            syncAllToPhoneCalendar(true);
+        } else {
+            toast("Calendar permission is needed to sync. You can still add dates one by one.");
+            if (currentTab == 2) showCalendar();
+        }
+    }
+
+    /** Adds/updates every upcoming item in the phone calendar. Safe to call repeatedly. */
+    private void syncAllToPhoneCalendar(boolean showResult) {
+        if (!calendarSyncEnabled()) return;
+        executor.execute(() -> {
+            int added = 0;
+            for (CalendarItem item : loadUpcomingItems()) {
+                boolean isNew = !prefs.contains(KEY_CAL_EVENT_PREFIX + item.postId);
+                if (upsertPhoneEvent(item) && isNew) added++;
+            }
+            final int count = added;
+            runOnUiThread(() -> {
+                if (showResult) {
+                    toast(count == 0 ? "Calendar is up to date"
+                            : "Added " + count + (count == 1 ? " date" : " dates") + " to your calendar");
+                }
+                if (currentTab == 2) showCalendar();
+            });
+        });
+    }
+
+    /** Inserts the item as an all-day event, or updates the one we inserted before. */
+    private boolean upsertPhoneEvent(CalendarItem item) {
+        try {
+            long calendarId = findWritableCalendarId();
+            if (calendarId < 0) return false;
+
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(android.provider.CalendarContract.Events.CALENDAR_ID, calendarId);
+            v.put(android.provider.CalendarContract.Events.TITLE, item.title);
+            v.put(android.provider.CalendarContract.Events.DESCRIPTION,
+                    item.message + "\n\nSource: " + item.pageName
+                            + (item.permalink != null ? "\n" + item.permalink : "")
+                            + "\n\nAdded by CampusSync");
+            v.put(android.provider.CalendarContract.Events.ALL_DAY, 1);
+            v.put(android.provider.CalendarContract.Events.EVENT_TIMEZONE, "UTC");
+            v.put(android.provider.CalendarContract.Events.DTSTART, utcMillis(item.y, item.m, item.d));
+            v.put(android.provider.CalendarContract.Events.DTEND,
+                    utcMillis(item.ey, item.em, item.ed) + DateUtils.DAY_IN_MILLIS);
+
+            String key = KEY_CAL_EVENT_PREFIX + item.postId;
+            long existing = prefs.getLong(key, -1);
+            if (existing >= 0 && phoneEventExists(existing)) {
+                getContentResolver().update(
+                        android.content.ContentUris.withAppendedId(
+                                android.provider.CalendarContract.Events.CONTENT_URI, existing),
+                        v, null, null);
+                return true;
+            }
+
+            Uri uri = getContentResolver().insert(
+                    android.provider.CalendarContract.Events.CONTENT_URI, v);
+            if (uri == null) return false;
+            prefs.edit().putLong(key, android.content.ContentUris.parseId(uri)).apply();
+            return true;
+        } catch (SecurityException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private boolean phoneEventExists(long eventId) {
+        try (android.database.Cursor c = getContentResolver().query(
+                android.provider.CalendarContract.Events.CONTENT_URI,
+                new String[]{android.provider.CalendarContract.Events._ID},
+                android.provider.CalendarContract.Events._ID + "=? AND "
+                        + android.provider.CalendarContract.Events.DELETED + "=0",
+                new String[]{String.valueOf(eventId)}, null)) {
+            return c != null && c.moveToFirst();
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    /** The phone's primary calendar (usually the Google account), or any writable one. */
+    private long findWritableCalendarId() {
+        String[] proj = {
+                android.provider.CalendarContract.Calendars._ID,
+                android.provider.CalendarContract.Calendars.IS_PRIMARY
+        };
+        String sel = android.provider.CalendarContract.Calendars.VISIBLE + "=1 AND "
+                + android.provider.CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + ">="
+                + android.provider.CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR;
+        long fallback = -1;
+        try (android.database.Cursor c = getContentResolver().query(
+                android.provider.CalendarContract.Calendars.CONTENT_URI, proj, sel, null, null)) {
+            if (c == null) return -1;
+            while (c.moveToNext()) {
+                long id = c.getLong(0);
+                if (c.getInt(1) == 1) return id;
+                if (fallback < 0) fallback = id;
+            }
+        } catch (SecurityException e) {
+            return -1;
+        }
+        return fallback;
+    }
+
+    /** Which of these items we've already put in the phone calendar. Runs on the executor. */
+    private Set<String> syncedPostIds(List<CalendarItem> items) {
+        Set<String> out = new HashSet<>();
+        if (!hasCalendarPermission()) return out;
+        for (CalendarItem it : items) {
+            long id = prefs.getLong(KEY_CAL_EVENT_PREFIX + it.postId, -1);
+            if (id >= 0 && phoneEventExists(id)) out.add(it.postId);
+        }
+        return out;
+    }
+
+    /** Opens the calendar app with the event pre-filled. Needs no permission. */
+    private void openCalendarInsert(CalendarItem item) {
+        try {
+            Intent i = new Intent(Intent.ACTION_INSERT)
+                    .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                    .putExtra(android.provider.CalendarContract.Events.TITLE, item.title)
+                    .putExtra(android.provider.CalendarContract.Events.DESCRIPTION,
+                            item.message + "\n\nSource: " + item.pageName
+                                    + (item.permalink != null ? "\n" + item.permalink : ""))
+                    .putExtra(android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+                    .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, item.startMillis())
+                    .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME,
+                            item.endMillisExclusive() - 1);
+            startActivity(i);
+        } catch (Exception e) {
+            toast("No calendar app found on this phone");
+        }
+    }
+
+    private void toast(String msg) {
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    // =========================
+    // OFFLINE INDICATOR
+    // =========================
+
+    private TextView offlineBanner;
+    private boolean isOnline = true;
+    private android.net.ConnectivityManager connectivity;
+    private android.net.ConnectivityManager.NetworkCallback networkCallback;
+
+    private void startNetworkWatch() {
+        offlineBanner = findViewById(R.id.offlineBanner);
+        connectivity = getSystemService(android.net.ConnectivityManager.class);
+        if (connectivity == null) return;
+
+        isOnline = checkOnline();
+        if (!isOnline) showOfflineBanner();
+
+        networkCallback = new android.net.ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onCapabilitiesChanged(android.net.Network network,
+                                              android.net.NetworkCapabilities caps) {
+                boolean ok = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                runOnUiThread(() -> setOnline(ok));
+            }
+
+            @Override
+            public void onLost(android.net.Network network) {
+                runOnUiThread(() -> setOnline(checkOnline()));
+            }
+        };
+        try {
+            connectivity.registerDefaultNetworkCallback(networkCallback);
+        } catch (SecurityException e) {
+            networkCallback = null;
+        }
+    }
+
+    private boolean checkOnline() {
+        if (connectivity == null) return true;
+        android.net.Network n = connectivity.getActiveNetwork();
+        if (n == null) return false;
+        android.net.NetworkCapabilities caps = connectivity.getNetworkCapabilities(n);
+        return caps != null
+                && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    }
+
+    private void setOnline(boolean online) {
+        if (isFinishing() || online == isOnline) return;
+        isOnline = online;
+        updateStatus();
+
+        if (!online) {
+            showOfflineBanner();
+            return;
+        }
+
+        // Back online: say so briefly, then sync automatically
+        offlineBanner.setText("✓  Back online — syncing new posts…");
+        offlineBanner.setTextColor(getColor(R.color.status_text));
+        offlineBanner.setBackgroundColor(getColor(R.color.soft_green));
+        SyncScheduler.syncNow(getApplicationContext());
+        watchSync();
+        uiHandler.postDelayed(() -> {
+            if (isOnline && offlineBanner != null) {
+                offlineBanner.animate().alpha(0f).setDuration(200)
+                        .withEndAction(() -> offlineBanner.setVisibility(View.GONE));
+            }
+        }, 2500);
+    }
+
+    private void showOfflineBanner() {
+        if (offlineBanner == null) return;
+        offlineBanner.setText("⚡  You're offline — showing posts saved on this device");
+        offlineBanner.setTextColor(getColor(R.color.cat_exam));
+        offlineBanner.setBackgroundColor(getColor(R.color.soft_orange));
+        offlineBanner.animate().cancel();
+        offlineBanner.setAlpha(0f);
+        offlineBanner.setVisibility(View.VISIBLE);
+        offlineBanner.animate().alpha(1f).setDuration(200);
     }
 
     // =========================
@@ -1429,6 +2111,10 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         stopThinkingAnimation();
+        stopCountdown();
+        if (connectivity != null && networkCallback != null) {
+            try { connectivity.unregisterNetworkCallback(networkCallback); } catch (Exception ignored) { }
+        }
         stopSkeletons();
         uiHandler.removeCallbacksAndMessages(null);
         executor.shutdown();

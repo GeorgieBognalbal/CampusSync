@@ -778,11 +778,12 @@ public class MainActivity extends Activity {
     // =========================
 
     private static final String[] SUGGESTIONS = {
+            "Magandang umaga! Ano kaya mo?",
             "May pasok ba bukas sa LSPU?",
-            "Kailan deadline ng TDP scholarship?",
-            "Midterm exam schedule",
-            "Hack4Success intramurals",
-            "Unknown question"
+            "Kailan deadline ng scholarship?",
+            "Midterm exam schedule at permit",
+            "Saan ang OSAS at Registrar?",
+            "Upcoming campus events"
     };
 
     /** Kept across tab switches so the conversation isn't lost. */

@@ -55,6 +55,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -444,17 +445,18 @@ public class MainActivity extends Activity {
     // CATEGORIES
     // =========================
 
-    /** Announcement type, detected from keywords in the post. */
+    /** Announcement type: the AI's categories when the post has them, otherwise keywords. */
     private enum Category {
         ALL("All", "", 0, 0),
         SUSPENSION("Classes", "⚠ Suspension", R.color.cat_suspension, R.color.cat_suspension_bg,
-                "suspend", "walang pasok", "no classes", "typhoon", "pasok"),
+                "suspend", "suspended", "suspension", "walang pasok", "walang klase", "no classes",
+                "typhoon", "bagyo"),
         EXAM("Exams", "Exam", R.color.cat_exam, R.color.cat_exam_bg,
-                "midterm", "exam", "finals", "quiz"),
+                "midterm", "exam", "examination", "finals", "quiz", "quizzes"),
         SCHOLARSHIP("Scholarships", "Scholarship", R.color.cat_scholarship, R.color.cat_scholarship_bg,
-                "scholar", "grant", "financial aid", "allowance"),
+                "scholar", "scholarship", "grant", "financial aid", "allowance"),
         EVENT("Events", "Event", R.color.cat_event, R.color.cat_event_bg,
-                "event", "seminar", "contest", "fair", "celebration", "intrams", "week"),
+                "event", "seminar", "contest", "fair", "celebration", "intrams", "intramurals"),
         GENERAL("General", "Update", R.color.cat_general, R.color.cat_general_bg);
 
         final String chipLabel;
@@ -471,11 +473,27 @@ public class MainActivity extends Activity {
             this.keywords = keywords;
         }
 
+        static Category of(AnnouncementEntity a) {
+            if (a == null) return GENERAL;
+            String cats = a.categories;
+            if (cats != null && !cats.isEmpty()) {
+                if (cats.contains("|Suspension|")) return SUSPENSION;
+                if (cats.contains("|Exams|")) return EXAM;
+                if (cats.contains("|Scholarship|")) return SCHOLARSHIP;
+                if (cats.contains("|Events|")) return EVENT;
+                return GENERAL;
+            }
+            return of(a.message);
+        }
+
+        /** Whole words only, so "example" doesn't count as "exam". Plurals still match. */
         static Category of(String message) {
             String m = message == null ? "" : message.toLowerCase(Locale.ROOT);
             for (Category c : new Category[]{SUSPENSION, EXAM, SCHOLARSHIP, EVENT}) {
                 for (String k : c.keywords) {
-                    if (m.contains(k)) return c;
+                    if (Pattern.compile("\\b" + Pattern.quote(k) + "(s|es)?\\b").matcher(m).find()) {
+                        return c;
+                    }
                 }
             }
             return GENERAL;
@@ -631,10 +649,10 @@ public class MainActivity extends Activity {
 
             runOnUiThread(() -> {
                 if (isFinishing() || currentTab != 0) return;
-                Category c = Category.of(latest.message);
+                Category c = Category.of(latest);
                 String prefix = c == Category.SUSPENSION ? "⚠ " : "";
                 title.setText(new SpannableStringBuilder(prefix)
-                        .append(shorten(MarkdownFormatter.format(latest.message), 110)));
+                        .append(shorten(MarkdownFormatter.format(summaryOf(latest)), 110)));
                 caption.setText(latest.pageName + "  •  "
                         + relativeTime(latest.createdAt) + "   Tap to open ↗");
                 card.setOnClickListener(v -> openUrl(latest.permalink));
@@ -666,7 +684,7 @@ public class MainActivity extends Activity {
 
             List<AnnouncementEntity> announcements = new ArrayList<>();
             for (AnnouncementEntity a : visibleAnnouncements(raw)) {
-                if (filter == Category.ALL || Category.of(a.message) == filter) {
+                if (filter == Category.ALL || Category.of(a) == filter) {
                     announcements.add(a);
                 }
             }
@@ -696,7 +714,7 @@ public class MainActivity extends Activity {
     private View addAnnouncementCard(
             LinearLayout parent, AnnouncementEntity item) {
 
-        Category category = Category.of(item.message);
+        Category category = Category.of(item);
 
         LinearLayout outer = card();
         outer.setPadding(dp(16), dp(16), dp(16), dp(12));
@@ -742,8 +760,11 @@ public class MainActivity extends Activity {
         top.addView(tag);
         outer.addView(top);
 
+        boolean hasTakeaway = item.keyTakeaway != null && !item.keyTakeaway.trim().isEmpty();
+
         TextView message = text(
-                MarkdownFormatter.format(item.message), 14, BODY, false
+                MarkdownFormatter.format(summaryOf(item)), hasTakeaway ? 15 : 14,
+                hasTakeaway ? DARK : BODY, false
         );
 
         message.setLineSpacing(dp(4), 1f);
@@ -775,6 +796,27 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams galleryParams = params(-1, 170);
             galleryParams.bottomMargin = dp(12);
             outer.addView(galleryScroll, galleryParams);
+        }
+
+        // The AI summary is shown first; the full post opens below it on tap
+        String fullText = item.message == null ? "" : item.message.trim();
+        if (hasTakeaway && !fullText.isEmpty() && !fullText.equals(item.keyTakeaway.trim())) {
+            TextView full = text(MarkdownFormatter.format(fullText), 14, BODY, false);
+            full.setLineSpacing(dp(4), 1f);
+            full.setVisibility(View.GONE);
+
+            TextView toggle = text("Show full post  ▾", 12, BLUE, true);
+            toggle.setPadding(0, 0, 0, dp(8));
+            toggle.setOnClickListener(v -> {
+                boolean open = full.getVisibility() == View.VISIBLE;
+                full.setVisibility(open ? View.GONE : View.VISIBLE);
+                toggle.setText(open ? "Show full post  ▾" : "Hide full post  ▴");
+            });
+
+            LinearLayout.LayoutParams fullParams = params(-1, -2);
+            fullParams.bottomMargin = dp(12);
+            outer.addView(full, fullParams);
+            outer.addView(toggle, params(-2, -2));
         }
 
         View divider = new View(this);
@@ -814,6 +856,12 @@ public class MainActivity extends Activity {
         if (json == null || json.trim().isEmpty()) return new JSONArray();
         try { return new JSONArray(json); }
         catch (JSONException ignored) { return new JSONArray(); }
+    }
+
+    /** The AI's one-line takeaway when there is one, otherwise the post text. */
+    private static String summaryOf(AnnouncementEntity a) {
+        if (a.keyTakeaway != null && !a.keyTakeaway.trim().isEmpty()) return a.keyTakeaway.trim();
+        return a.message == null ? "" : a.message;
     }
 
     // ---------- loading skeletons ----------
@@ -1445,7 +1493,7 @@ public class MainActivity extends Activity {
         item.deadline = p.deadline;
         item.y = p.y; item.m = p.m; item.d = p.d;
         item.ey = p.ey; item.em = p.em; item.ed = p.ed;
-        item.category = Category.of(a.message);
+        item.category = Category.of(a);
         return item;
     }
 

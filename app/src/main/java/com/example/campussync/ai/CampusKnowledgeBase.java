@@ -498,9 +498,9 @@ public class CampusKnowledgeBase {
                 "• **Hair Color Policy**: Colored/tinted/dyed hair out of the ordinary is prohibited. Minimal aesthetic coloring requires approval from OSAS and Campus Director.\n" +
                 "• **SOP Haircut Inspection**: Conducted every **first (1st) Monday of the month** by Guard-on-Duty, Chief of Security, and OSAS.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 2*",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("haircut", "gupit", "buhok", "barbers", "2x3", "1x2", "hair color", "kulay", "fixie", "inspection"),
-                Arrays.asList("haircut rules", "ano haircut sa lspu", "gupit ng lalaki", "hair inspection", "bawal ba kulay buhok", "2x3 haircut", "haircut policy", "pwede ba may kulay buhok"),
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("haircut", "gupit", "buhok", "barbers", "2x3", "1x2", "hair color", "kulay", "fixie", "inspection", "lalaki", "lalake", "male", "rules", "rule"),
+                Arrays.asList("haircut rules", "rules sa haircut", "haircut ng lalaki", "haircut sa lalaki", "ano haircut sa lspu", "gupit ng lalaki", "hair inspection", "bawal ba kulay buhok", "2x3 haircut", "haircut policy", "pwede ba may kulay buhok"),
                 "Chapter 6, Article 4, Sec. 2",
                 "Campus Life"
         ));
@@ -532,9 +532,9 @@ public class CampusKnowledgeBase {
                 "• **Caps / Headgear**: Wearing of caps or headgear inside any classroom, office, or hall is **strictly prohibited** for both male and female students.\n" +
                 "• **Tattoos**: Permanent tattooing on exposed parts of the body is **strictly prohibited**.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 3, 4, 5*",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("earrings", "hikaw", "cap", "caps", "sombrero", "tattoo", "tattoos", "piercing"),
-                Arrays.asList("pwede ba mag hikaw", "bawal ba hikaw sa lalaki", "tattoo policy", "bawal ba tattoo", "bawal ba cap sa loob", "earrings policy"),
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("earrings", "hikaw", "cap", "caps", "sombrero", "tattoo", "tattoos", "piercing", "bawal"),
+                Arrays.asList("pwede ba mag hikaw", "bawal ba hikaw sa lalaki", "tattoo policy", "bawal ba tattoo", "bawal ba cap sa loob", "earrings policy", "hikaw rules"),
                 "Chapter 6, Article 4, Sec. 3-5",
                 "Campus Life"
         ));

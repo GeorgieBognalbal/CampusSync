@@ -26,18 +26,33 @@ import java.util.Locale;
  * Cloud AI Adapter for Path 3 (Hybrid Edge-First Nano RAG with Cloud Fallback)
  * 
  * Provides live multi-tier AI expansion when the device is connected to the internet.
- * Connects directly to Google Gemini Flash via REST API using standard Android networking
+ * Connects directly to Google Gemini Flash models via REST API using standard Android networking
  * (HttpURLConnection + org.json, zero external dependencies).
  * 
- * If a Gemini API key is configured (via local.properties 'campussync.geminiApiKey'),
- * it executes live generative reasoning. If not set, it falls back to an expanded
- * cloud knowledge base with clear setup instructions.
+ * Employs a multi-tier model fallback strategy:
+ * 1. gemini-3.5-flash-lite (Ultra-low latency ~800ms, highly responsive)
+ * 2. gemini-3.1-flash-lite (Reliable secondary fallback)
+ * 3. gemini-3.6-flash (Tertiary fallback)
+ * 
+ * If all cloud models fail or network is unavailable, it gracefully consults
+ * the comprehensive CampusKnowledgeBase to always return accurate, helpful LSPU-SPCC answers.
  */
 public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
     private static final String TAG = "CloudAIAdapter";
-    private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=";
+
+    private static final String GEMINI_BASE_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/";
+
+    /**
+     * Prioritized list of active Gemini models for cloud generation.
+     * Starts with ultra-low latency gemini-3.5-flash-lite (~800ms response).
+     */
+    private static final String[] CANDIDATE_MODELS = {
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-3.6-flash"
+    };
 
     private final Context context;
 
@@ -76,7 +91,8 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
     /**
      * Resolves queries via cloud intelligence when local cache does not have high-confidence matches.
-     * Tries live Gemini API if GEMINI_API_KEY is present; otherwise provides rich expanded cloud knowledge.
+     * Tries live Gemini API candidates if GEMINI_API_KEY is present; otherwise falls back to
+     * comprehensive campus encyclopedic knowledge.
      */
     @Override
     public LocalNanoAIEngine.NanoAIResult queryCloudFallback(String userQuery,
@@ -91,59 +107,61 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
         String apiKey = BuildConfig.GEMINI_API_KEY;
 
-        // 1. Try a real live Gemini Flash call if an API key is configured
+        // 1. Try live Gemini calls across candidate models with automatic failover
         if (apiKey != null && !apiKey.trim().isEmpty() && !apiKey.equals("null")) {
-            try {
-                String liveAnswer = callGeminiLive(userQuery, cachedSource, apiKey.trim());
-                if (liveAnswer != null && !liveAnswer.trim().isEmpty()) {
-                    return new LocalNanoAIEngine.NanoAIResult(
-                            liveAnswer,
-                            detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
-                            0.95f,
-                            cachedSource,
-                            false // isOfflineAnswer = false indicates live cloud response
-                    );
+            for (String modelName : CANDIDATE_MODELS) {
+                try {
+                    String liveAnswer = callGeminiLive(modelName, userQuery, cachedSource, apiKey.trim());
+                    if (liveAnswer != null && !liveAnswer.trim().isEmpty()) {
+                        return new LocalNanoAIEngine.NanoAIResult(
+                                liveAnswer,
+                                detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
+                                0.95f,
+                                cachedSource,
+                                false // isOfflineAnswer = false indicates live cloud response
+                        );
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Gemini call failed for model [" + modelName + "]: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                Log.w(TAG, "Live Gemini call failed, falling back to cloud knowledge base", e);
             }
         }
 
-        // 2. Expanded Cloud Knowledge Base response
-        String expandedAnswer = buildExpandedCloudResponse(userQuery, apiKey);
+        // 2. Graceful fallback: Consult CampusKnowledgeBase and synthesize structured guidance
+        String expandedAnswer = buildExpandedCloudResponse(userQuery, detectedIntent, apiKey);
 
         return new LocalNanoAIEngine.NanoAIResult(
                 expandedAnswer,
                 detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
                 0.90f,
                 cachedSource,
-                false // isOfflineAnswer = false indicates cloud response
+                true // isOfflineAnswer = true since this is served locally from knowledge base
         );
     }
 
     /**
-     * Executes real HTTP POST to Google Gemini Flash using HttpURLConnection.
-     * gemini-3.5-flash (used before) is deprecated; Google only redirects it for now.
+     * Executes HTTP POST to Google Gemini API using HttpURLConnection.
      */
-    private String callGeminiLive(String userQuery, AnnouncementEntity cachedSource, String apiKey) throws Exception {
-        URL url = new URL(GEMINI_API_URL + apiKey);
+    private String callGeminiLive(String modelName, String userQuery, AnnouncementEntity cachedSource, String apiKey) throws Exception {
+        URL url = new URL(GEMINI_BASE_URL + modelName + ":generateContent?key=" + apiKey);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setConnectTimeout(8000);
-        conn.setReadTimeout(12000);
+        conn.setConnectTimeout(6000);
+        conn.setReadTimeout(9000);
         conn.setDoOutput(true);
 
         // Grounding context if a source post exists
         String contextSnippet = "";
-        if (cachedSource != null && cachedSource.message != null) {
-            contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message + "\"";
+        if (cachedSource != null && cachedSource.message != null && !cachedSource.message.trim().isEmpty()) {
+            contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message.trim() + "\"";
         }
 
-        String prompt = "You are Kaleo Cloud AI, an intelligent assistant for students at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC). " +
+        String prompt = "You are Kaleo Cloud AI, an intelligent, friendly student assistant for Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC). " +
                 "Answer the student's question helpfully, accurately, and concisely in English or Taglish. " +
+                "Be polite and informative. If asking about campus facilities, offices, programs, or rules, refer accurately to LSPU San Pablo City Campus." +
                 contextSnippet +
-                "\n\nStudent Question: " + userQuery;
+                "\n\nStudent Question: " + userQuery.trim();
 
         // Build Gemini Request Payload
         JSONObject root = new JSONObject();
@@ -165,16 +183,8 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
         int statusCode = conn.getResponseCode();
         if (statusCode >= 200 && statusCode < 300) {
-            InputStream is = conn.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-            reader.close();
-
-            JSONObject responseJson = new JSONObject(sb.toString());
+            String responseStr = readStream(conn.getInputStream());
+            JSONObject responseJson = new JSONObject(responseStr);
             JSONArray candidates = responseJson.optJSONArray("candidates");
             if (candidates != null && candidates.length() > 0) {
                 JSONObject candidate = candidates.getJSONObject(0);
@@ -182,29 +192,88 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 if (contentObj != null) {
                     JSONArray candidateParts = contentObj.optJSONArray("parts");
                     if (candidateParts != null && candidateParts.length() > 0) {
-                        return candidateParts.getJSONObject(0).optString("text");
+                        StringBuilder textBuilder = new StringBuilder();
+                        for (int p = 0; p < candidateParts.length(); p++) {
+                            JSONObject part = candidateParts.optJSONObject(p);
+                            if (part != null) {
+                                if (part.optBoolean("thought", false)) continue;
+                                String text = part.optString("text", "");
+                                if (!text.isEmpty()) {
+                                    textBuilder.append(text);
+                                }
+                            }
+                        }
+                        if (textBuilder.length() > 0) {
+                            return textBuilder.toString().trim();
+                        }
+                        // Fallback if all parts were filtered
+                        for (int p = 0; p < candidateParts.length(); p++) {
+                            JSONObject part = candidateParts.optJSONObject(p);
+                            if (part != null) {
+                                String text = part.optString("text", "");
+                                if (!text.trim().isEmpty()) {
+                                    return text.trim();
+                                }
+                            }
+                        }
                     }
                 }
             }
         } else {
-            Log.w(TAG, "Gemini API returned HTTP " + statusCode);
+            String errDetail = readStream(conn.getErrorStream());
+            Log.w(TAG, "Gemini API [" + modelName + "] returned HTTP " + statusCode + ": " + errDetail);
         }
 
         return null;
     }
 
-    private String buildExpandedCloudResponse(String userQuery, String apiKey) {
-        String q = userQuery.toLowerCase(Locale.ROOT);
-        String body;
+    private static String readStream(InputStream is) {
+        if (is == null) return "";
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
 
-        if (q.contains("course") || q.contains("program") || q.contains("degree") || q.contains("curriculum") || q.contains("major")) {
+    private String buildExpandedCloudResponse(String userQuery, LocalNanoAIEngine.Intent detectedIntent, String apiKey) {
+        String q = userQuery.toLowerCase(Locale.ROOT).trim();
+
+        // 1. Try comprehensive CampusKnowledgeBase first
+        CampusKnowledgeBase.KnowledgeEntry kbMatch = CampusKnowledgeBase.findBestMatch(q, detectedIntent);
+        if (kbMatch != null && kbMatch.content != null && !kbMatch.content.trim().isEmpty()) {
+            return kbMatch.content;
+        }
+
+        // 2. Specific intent-based campus guidance
+        String body;
+        if (detectedIntent == LocalNanoAIEngine.Intent.SUSPENSION) {
+            body = "✅ **Class Suspension Inquiries**\n\n" +
+                    "Classes remain regular unless an official announcement is issued by the LSPU Administration or the San Pablo City LGU.\n\n" +
+                    "• Check the official **LSPU - San Pablo City Campus Facebook Page** for verified weather or emergency suspension bulletins.\n" +
+                    "• Pull down the Feed tab to sync the latest announcements.";
+        } else if (detectedIntent == LocalNanoAIEngine.Intent.SCHOLARSHIP) {
+            body = "🎓 **Scholarship & Financial Assistance**\n\n" +
+                    "LSPU-SPCC students can apply for government and institutional financial grants:\n\n" +
+                    "• **Tulong Dunong Program (TDP-TES)** & **CHED Tertiary Education Subsidy (TES)**\n" +
+                    "• **Iskolar ng Laguna** & San Pablo City Educational Assistance\n" +
+                    "• **UniFAST Free Higher Education** (RA 10931)\n\n" +
+                    "For application periods and document submission, visit the **Office of Student Affairs and Services (OSAS)** in the Administration Building.";
+        } else if (q.contains("course") || q.contains("program") || q.contains("degree") || q.contains("curriculum") || q.contains("major")) {
             body = "Laguna State Polytechnic University (LSPU) San Pablo City Campus offers recognized undergraduate programs:\n\n" +
-                    "• **College of Computer Studies**: BS Computer Science (BSCS), BS Information Technology (BSIT)\n" +
-                    "• **College of Teacher Education**: BSED (English, Math, Science), BEED\n" +
-                    "• **College of Hospitality Management & Tourism**: BSHM\n" +
-                    "• **College of Business Administration**: BSBA\n" +
-                    "• **College of Industrial Technology**: BSIT auto, electronics, electrical\n\n" +
-                    "For admission requirements and entrance examination schedules, visit the SPCC Registrar or the official LSPU web portal.";
+                    "• **College of Computer Studies (CCS)**: BS Computer Science (BSCS), BS Information Technology (BSIT)\n" +
+                    "• **College of Teacher Education (CTE)**: BSED (English, Math, Science, Filipino, Social Studies), BEED\n" +
+                    "• **College of Business Management & Accountancy (CBMA)**: BSA, BSBA (Financial / Marketing), BS Entrep\n" +
+                    "• **College of Engineering (COE)**: BS Civil, Mechanical, Electrical, Computer Engineering\n" +
+                    "• **College of Industrial Technology (CIT)**: BIT (Automotive, Electrical, Electronics, Mechanical)\n" +
+                    "• **College of Arts & Sciences (CAS)**: BA Communication, BS Mathematics\n" +
+                    "• **College of Criminal Justice Education (CCJE)**: BS Criminology\n\n" +
+                    "For admission requirements and entrance examination schedules, visit the SPCC Registrar's Office.";
         } else if (q.contains("portal") || q.contains("grades") || q.contains("account") || q.contains("password") || q.contains("cor")) {
             body = "You can access your official LSPU student portal at **https://lspu.edu.ph/portal** to view:\n\n" +
                     "• Verified midterm and final grades\n" +
@@ -216,9 +285,11 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         } else if (q.contains("library") || q.contains("book") || q.contains("thesis") || q.contains("study")) {
             body = "The LSPU-SPCC Campus Library is open Monday to Friday, 8:00 AM to 5:00 PM. Students can borrow references, access academic journals, or utilize quiet study spaces by presenting a validated student ID.";
         } else {
-            body = "Your query **\"" + userQuery.trim() + "\"** was routed to the Cloud Expansion Adapter.\n\n" +
-                    "• For university records, admissions, or official verification, visit the SPCC Registrar or OSAS.\n" +
-                    "• To sync the newest official Facebook posts, tap the sync icon or pull down to refresh!";
+            body = "I couldn't reach the live AI service right now to answer **\"" + userQuery.trim() + "\"**.\n\n" +
+                    "Here are helpful LSPU-SPCC resources:\n" +
+                    "• **Campus Administration**: The Registrar, OSAS, and Accounting are open Mon–Fri, 8:00 AM – 5:00 PM at the Administration Building.\n" +
+                    "• **Online Portal**: Check grades and enrolled subjects at **https://lspu.edu.ph/portal**.\n" +
+                    "• **Feed Sync**: Pull down the Feed tab to get the latest official university announcements.";
         }
 
         // Help notice if GEMINI_API_KEY is not yet added

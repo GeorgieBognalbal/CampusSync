@@ -1082,7 +1082,7 @@ public class MainActivity extends Activity {
 
         String tag = result.isOfflineAnswer
                 ? "⚡ [" + latencyMs + "ms • Local Nano AI]\n"
-                : "☁️ [" + latencyMs + "ms • Cloud Fallback]\n";
+                : "☁️ [" + latencyMs + "ms • Cloud AI]\n";
 
         return new ChatMessage(tag + result.answer, ChatMessage.Sender.BOT, sources);
     }

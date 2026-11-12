@@ -176,7 +176,16 @@ public class LocalNanoAIEngine {
             "portal", "password", "account", "login", "student number", "good moral",
             // Personnel & Administration
             "president", "presidente", "briones", "campus director", "dean", "director",
-            "professor", "prof", "instructor", "teacher", "chancellor"
+            "professor", "prof", "instructor", "teacher", "chancellor",
+            // Expanded English Vocabulary for Student Inquiries
+            "classes", "class", "school", "tomorrow", "today", "yesterday", "morning", "afternoon",
+            "shorts", "slippers", "sandals", "shoes", "attire", "dress code", "dress", "wear",
+            "pants", "shirt", "blouse", "slacks", "jeans", "hair", "grooming", "earring",
+            "earrings", "piercing", "piercings", "tattoo", "tattoos", "cap", "caps", "headgear",
+            "fail", "failed", "failing", "failure", "pass", "passing", "passed",
+            "cancelled", "cancel", "cancellation", "suspended", "suspend", "suspension",
+            "hours", "office hours", "operating hours", "where is", "location",
+            "english", "proficiency", "math", "science", "board program"
     };
 
     /**
@@ -247,6 +256,25 @@ public class LocalNanoAIEngine {
     /**
      * Standard rejection response for queries outside the LSPU campus domain.
      */
+    public boolean isEnglishQuery(String query) {
+        if (query == null) return false;
+        String q = query.toLowerCase(Locale.ROOT);
+        String[] tagalogMarkers = {
+                "ba", "sa", "ng", "ang", "mga", "ano", "paano", "kailan", "saan",
+                "bakit", "sino", "po", "opo", "naman", "nga", "ko", "mo", "namin",
+                "natin", "kanila", "kayo", "sila", "meron", "may", "wala", "walang",
+                "pasok", "klase", "bukas", "kahapon", "ngayon", "pwede", "bawal",
+                "damit", "suot", "parusa", "gupit", "buhok", "hikaw", "salamat",
+                "kamusta", "kumusta", "musta", "umaga", "hapon", "gabi"
+        };
+        for (String tm : tagalogMarkers) {
+            if (matchesWord(q, tm)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public NanoAIResult buildOutOfScopeResult(String query) {
         return new NanoAIResult(
                 "⚠️ **LSPU Campus Inquiries Only**\n\n" +
@@ -296,8 +324,11 @@ public class LocalNanoAIEngine {
         }
 
         if (detectedIntent == Intent.GRATITUDE) {
+            boolean isEng = isEnglishQuery(normalizedQuery);
             return new NanoAIResult(
-                    "Walang anuman! 😊 Always glad to help an LSPU student. Let me know if you need to check suspensions, exam dates, or scholarship deadlines anytime!",
+                    isEng
+                            ? "You're very welcome! 😊 Always glad to help an LSPU student. Let me know if you need to check class suspensions, exam dates, or scholarship deadlines anytime!"
+                            : "Walang anuman! 😊 Always glad to help an LSPU student. Let me know if you need to check suspensions, exam dates, or scholarship deadlines anytime!",
                     Intent.GRATITUDE, 0.99f, null, true
             );
         }
@@ -329,12 +360,14 @@ public class LocalNanoAIEngine {
         boolean isStaticGuidanceQuery = (detectedIntent == Intent.CAMPUS_INFO) ||
                 (detectedIntent == Intent.RULES_DISCIPLINE) ||
                 normalizedQuery.contains("grading") || normalizedQuery.contains("passing") ||
-                normalizedQuery.contains("inc") || normalizedQuery.contains("deans list") ||
-                normalizedQuery.contains("dean's list") || normalizedQuery.contains("honor") ||
-                normalizedQuery.contains("cum laude") || normalizedQuery.contains("magna") ||
-                normalizedQuery.contains("summa") || normalizedQuery.contains("tor") ||
-                normalizedQuery.contains("cor") || normalizedQuery.contains("unifast") ||
-                normalizedQuery.contains("good moral") || normalizedQuery.contains("saan") ||
+                normalizedQuery.contains("grade") || normalizedQuery.contains("fail") ||
+                normalizedQuery.contains("inc") || normalizedQuery.contains("incomplete") ||
+                normalizedQuery.contains("deans list") || normalizedQuery.contains("dean's list") ||
+                normalizedQuery.contains("honor") || normalizedQuery.contains("cum laude") ||
+                normalizedQuery.contains("magna") || normalizedQuery.contains("summa") ||
+                normalizedQuery.contains("tor") || normalizedQuery.contains("cor") ||
+                normalizedQuery.contains("unifast") || normalizedQuery.contains("good moral") ||
+                normalizedQuery.contains("saan") || normalizedQuery.contains("where") ||
                 normalizedQuery.contains("hours") || normalizedQuery.contains("oras") ||
                 normalizedQuery.contains("president") || normalizedQuery.contains("presidente") ||
                 normalizedQuery.contains("course") || normalizedQuery.contains("program") ||
@@ -346,19 +379,29 @@ public class LocalNanoAIEngine {
                 normalizedQuery.contains("kodigo") || normalizedQuery.contains("parusa") ||
                 normalizedQuery.contains("sanction") || normalizedQuery.contains("offense") ||
                 normalizedQuery.contains("haircut") || normalizedQuery.contains("gupit") ||
-                normalizedQuery.contains("hikaw") || normalizedQuery.contains("earrings") ||
+                normalizedQuery.contains("hair") ||
+                normalizedQuery.contains("hikaw") || normalizedQuery.contains("earring") ||
+                normalizedQuery.contains("piercing") ||
                 normalizedQuery.contains("tattoo") || normalizedQuery.contains("bawal") ||
                 normalizedQuery.contains("shorts") || normalizedQuery.contains("tsinelas") ||
+                normalizedQuery.contains("slippers") || normalizedQuery.contains("attire") ||
+                normalizedQuery.contains("dress code") ||
                 normalizedQuery.contains("mrr") || normalizedQuery.contains("residency") ||
                 normalizedQuery.contains("overload") || normalizedQuery.contains("tree planting") ||
                 normalizedQuery.contains("seedlings") || normalizedQuery.contains("refund") ||
-                normalizedQuery.contains("4.00") || normalizedQuery.contains("conditional") ||
-                normalizedQuery.contains("ojt") || normalizedQuery.contains("internship") ||
-                normalizedQuery.contains("mental health") || normalizedQuery.contains("counseling") ||
-                normalizedQuery.contains("drug test") || normalizedQuery.contains("excuse slip") ||
-                normalizedQuery.contains("lgbt") || normalizedQuery.contains("transgender") ||
-                normalizedQuery.contains("smoking") || normalizedQuery.contains("yosi") ||
-                normalizedQuery.contains("littering") || normalizedQuery.contains("basura");
+                normalizedQuery.contains("4.00") || normalizedQuery.contains("4.0") ||
+                normalizedQuery.contains("conditional") || normalizedQuery.contains("ojt") ||
+                normalizedQuery.contains("internship") || normalizedQuery.contains("mental health") ||
+                normalizedQuery.contains("counseling") || normalizedQuery.contains("drug test") ||
+                normalizedQuery.contains("excuse slip") || normalizedQuery.contains("lgbt") ||
+                normalizedQuery.contains("transgender") || normalizedQuery.contains("smoking") ||
+                normalizedQuery.contains("yosi") || normalizedQuery.contains("littering") ||
+                normalizedQuery.contains("basura") || normalizedQuery.contains("drop") ||
+                normalizedQuery.contains("shift") || normalizedQuery.contains("transfer") ||
+                normalizedQuery.contains("admission") || normalizedQuery.contains("entrance") ||
+                normalizedQuery.contains("english") || normalizedQuery.contains("clinic") ||
+                normalizedQuery.contains("library") || normalizedQuery.contains("registrar") ||
+                normalizedQuery.contains("osas") || normalizedQuery.contains("guidance");
 
         if (kbEntry != null && isStaticGuidanceQuery) {
             return new NanoAIResult(
@@ -492,31 +535,38 @@ public class LocalNanoAIEngine {
         String q = query.toLowerCase(Locale.ROOT).trim();
 
         // Conversational short-circuits
-        if (q.equals("hi") || q.equals("hello") || q.equals("hey") || q.startsWith("hi ") ||
+        if (q.equals("hi") || q.equals("hello") || q.equals("hey") || q.startsWith("hi ") || q.startsWith("hello ") ||
                 q.contains("magandang umaga") || q.contains("magandang hapon") ||
                 q.contains("magandang gabi") || q.contains("good morning") ||
-                q.contains("good afternoon") || q.contains("good evening") ||
-                q.contains("kamusta") || q.contains("kumusta") || q.equals("musta")) {
+                q.contains("good afternoon") || q.contains("good evening") || q.contains("good day") ||
+                q.contains("kamusta") || q.contains("kumusta") || q.equals("musta") || q.contains("how are you")) {
             return Intent.GREETING;
         }
 
         if (q.contains("salamat") || q.contains("thank you") || q.contains("thanks") ||
-                q.equals("ty") || q.equals("thx") || q.contains("appreciate")) {
+                q.equals("ty") || q.equals("thx") || q.contains("appreciate") || q.contains("thank u")) {
             return Intent.GRATITUDE;
         }
 
         if (q.contains("sino ka") || q.contains("who are you") || q.contains("ano pangalan mo") ||
                 q.contains("what is your name") || q.contains("what is kaleo") || q.contains("ano ang kaleo") ||
-                q.contains("sino gumawa") || q.contains("who made you")) {
+                q.contains("sino gumawa") || q.contains("who made you") || q.contains("who developed you") ||
+                q.contains("what can you do") || q.contains("ano kaya mo") || q.contains("capabilities")) {
             return Intent.IDENTITY;
         }
 
-        // Suspension patterns
+        // Suspension patterns (Bilingual English & Tagalog)
         if (q.contains("may pasok") || q.contains("walang pasok") || q.contains("walang klase") ||
                 q.contains("may klase") || q.contains("suspindido") || q.contains("suspension") ||
+                q.contains("suspend") || q.contains("suspended") ||
                 q.contains("bagyo") || q.contains("typhoon") || q.contains("is there class") ||
-                q.contains("class suspension") || q.contains("signal #") || q.contains("signal no") ||
-                q.contains("signal 1") || q.contains("signal 2")) {
+                q.contains("are there classes") || q.contains("do we have class") || q.contains("do we have classes") ||
+                q.contains("class suspension") || q.contains("classes suspended") || q.contains("classes cancel") ||
+                q.contains("classes cancelled") || q.contains("class cancelled") || q.contains("no classes") ||
+                q.contains("no class") || q.contains("school cancelled") ||
+                q.contains("classes tomorrow") || q.contains("school tomorrow") || q.contains("classes today") ||
+                q.contains("school today") || q.contains("signal #") || q.contains("signal no") ||
+                q.contains("signal 1") || q.contains("signal 2") || q.contains("signal 3")) {
             return Intent.SUSPENSION;
         }
 
@@ -533,38 +583,47 @@ public class LocalNanoAIEngine {
                 q.contains("magnakaw") || q.contains("theft") || q.contains("gambling") ||
                 q.contains("drug test") || q.contains("mdtp") || q.contains("narcotics") ||
                 q.contains("alcohol") || q.contains("alak") || q.contains("drunkenness") ||
-                q.contains("haircut") || q.contains("gupit") || q.contains("buhok") ||
-                q.contains("hikaw") || q.contains("earrings") || q.contains("tattoo") ||
+                q.contains("haircut") || q.contains("gupit") || q.contains("buhok") || q.contains("hair rules") ||
+                q.contains("long hair") ||
+                q.contains("hikaw") || q.contains("earring") || q.contains("earrings") || q.contains("piercing") ||
+                q.contains("tattoo") || q.contains("tattoos") ||
                 q.contains("cap") || q.contains("sombrero") || q.contains("lgbt") ||
                 q.contains("transgender") || q.contains("rights") || q.contains("karapatan")) {
             return Intent.RULES_DISCIPLINE;
         }
 
-        // Campus Info / Directory / Guidelines
-        if (q.contains("uniform") || q.contains("wash day") || q.contains("civilian") ||
+        // Campus Info / Directory / Guidelines / Dress Code
+        if (q.contains("dress code") || q.contains("uniform") || q.contains("wash day") || q.contains("civilian") ||
+                q.contains("shorts") || q.contains("slippers") || q.contains("attire") || q.contains("what to wear") ||
                 q.contains("suot") || q.contains("damit") || q.contains("clinic") ||
                 q.contains("library") || q.contains("aklatan") || q.contains("lost id") ||
-                q.contains("nawala") || (q.contains("id") && (q.contains("nawala") || q.contains("kumuha") || q.contains("replacement") || q.contains("lanyard"))) ||
+                q.contains("nawala") || q.contains("id replacement") ||
+                (q.contains("id") && (q.contains("nawala") || q.contains("kumuha") || q.contains("replacement") || q.contains("lanyard") || q.contains("lost"))) ||
                 q.contains("good moral") || q.contains("president") || q.contains("presidente") ||
                 q.contains("hotline") || q.contains("emergency") || q.contains("portal") ||
                 q.contains("courses offered") || q.contains("programs offered") || q.contains("mga kurso") ||
-                (q.contains("saan") && (q.contains("registrar") || q.contains("osas") || q.contains("clinic") || q.contains("library")))) {
+                q.contains("where is") || q.contains("where can i find") || q.contains("where to find") ||
+                q.contains("office hours") || q.contains("operating hours") || q.contains("hours") ||
+                q.contains("registrar") || q.contains("osas") || q.contains("guidance") || q.contains("cashier") ||
+                (q.contains("saan") && (q.contains("registrar") || q.contains("osas") || q.contains("clinic") || q.contains("library") || q.contains("opisina")))) {
             return Intent.CAMPUS_INFO;
         }
 
         // Academics & Grading
         if (q.contains("midterm") || q.contains("exam") || q.contains("finals") ||
                 q.contains("permit") || q.contains("grade") || q.contains("grading") ||
-                q.contains("passing") || q.contains("singko") || q.contains("tres") ||
+                q.contains("passing") || q.contains("pass") || q.contains("fail") || q.contains("singko") || q.contains("tres") ||
                 q.contains("inc") || q.contains("incomplete") || q.contains("deans list") ||
                 q.contains("dean's list") || q.contains("latin honor") || q.contains("cum laude") ||
                 q.contains("magna") || q.contains("summa") || q.contains("cor") ||
                 q.contains("tor") || q.contains("transcript") || q.contains("clearance") ||
-                q.contains("shifting") || q.contains("dropping") || q.contains("mrr") ||
-                q.contains("residency") || q.contains("overload") || q.contains("tree planting") ||
-                q.contains("seedlings") || q.contains("refund") || q.contains("4.00") ||
-                q.contains("conditional") || q.contains("thesis") || q.contains("ojt") ||
-                q.contains("internship") || q.contains("retention")) {
+                q.contains("shifting") || q.contains("shift") || q.contains("dropping") || q.contains("drop") ||
+                q.contains("mrr") || q.contains("residency") || q.contains("overload") ||
+                q.contains("tree planting") || q.contains("seedlings") || q.contains("refund") ||
+                q.contains("4.00") || q.contains("4.0") || q.contains("conditional") ||
+                q.contains("thesis") || q.contains("ojt") || q.contains("internship") ||
+                q.contains("retention") || q.contains("admission") || q.contains("entrance") ||
+                q.contains("english")) {
             return Intent.ACADEMICS;
         }
 
@@ -590,16 +649,25 @@ public class LocalNanoAIEngine {
     }
 
     private String buildGreetingResponse(String query) {
+        boolean isEnglish = isEnglishQuery(query);
         if (query.contains("umaga") || query.contains("morning")) {
-            return "Magandang umaga! 🌅 Ready to help you start your campus day. Ask me about class suspensions, scholarship deadlines, or exam updates!";
+            return isEnglish
+                    ? "Good morning! 🌅 Ready to help you start your campus day. Ask me about class suspensions, scholarship deadlines, or exam updates!"
+                    : "Magandang umaga! 🌅 Ready to help you start your campus day. Ask me about class suspensions, scholarship deadlines, or exam updates!";
         } else if (query.contains("hapon") || query.contains("afternoon")) {
-            return "Magandang hapon! ☀️ Kaleo is online and ready. What campus information or announcement do you need today?";
+            return isEnglish
+                    ? "Good afternoon! ☀️ Kaleo is online and ready. What campus information or announcement do you need today?"
+                    : "Magandang hapon! ☀️ Kaleo is online and ready. What campus information or announcement do you need today?";
         } else if (query.contains("gabi") || query.contains("evening")) {
-            return "Magandang gabi! 🌙 Checking evening updates? Ask me if there are suspension advisories or exam schedules for tomorrow!";
+            return isEnglish
+                    ? "Good evening! 🌙 Checking evening updates? Ask me if there are suspension advisories or exam schedules for tomorrow!"
+                    : "Magandang gabi! 🌙 Checking evening updates? Ask me if there are suspension advisories or exam schedules for tomorrow!";
         } else if (query.contains("kamusta") || query.contains("musta")) {
             return "Mabuti naman! Ako si Kaleo, handang sumagot sa mga katanungan mo tungkol sa suspensions, scholarships, o exams sa LSPU-SPCC!";
         }
-        return "Hello! I am Kaleo, your offline-first campus information assistant. How can I assist you with LSPU-SPCC updates today?";
+        return isEnglish
+                ? "Hello! I am Kaleo, your offline-first campus information assistant. How can I assist you with LSPU-SPCC updates today?"
+                : "Hello! I am Kaleo, your offline-first campus information assistant. How can I assist you with LSPU-SPCC updates today?";
     }
 
     /**
@@ -779,6 +847,18 @@ public class LocalNanoAIEngine {
     }
 
     private NanoAIResult fallbackResult(Intent intent, String query) {
+        boolean isEng = isEnglishQuery(query);
+        if (isEng) {
+            return new NanoAIResult(
+                    "I couldn't find an exact announcement or handbook rule for that in the offline cache.\n\n" +
+                    "💡 **You can try asking:**\n" +
+                    "• *\"Are classes suspended today?\"* (Suspension checks)\n" +
+                    "• *\"When is the scholarship deadline?\"* (TDP/CHED updates)\n" +
+                    "• *\"Midterm exam schedule\"* (Academic calendar)\n" +
+                    "• *\"Where is the registrar or OSAS office?\"* (Campus navigation)",
+                    intent, 0.20f, null, true
+            );
+        }
         return new NanoAIResult(
                 "Hindi ko mahanap ang eksaktong announcement ukol diyan sa offline cache.\n\n" +
                 "💡 **Subukang itanong:**\n" +
@@ -793,12 +873,18 @@ public class LocalNanoAIEngine {
     private static boolean matchesWord(String text, String word) {
         if (text == null || word == null) return false;
         String t = text.toLowerCase(Locale.ROOT);
-        String w = word.toLowerCase(Locale.ROOT);
-        if (w.length() <= 3) {
-            Pattern p = Pattern.compile("\\b" + Pattern.quote(w) + "\\b");
-            return p.matcher(t).find();
+        String w = word.toLowerCase(Locale.ROOT).trim();
+        if (w.isEmpty()) return false;
+        boolean startWordBoundary = Character.isLetterOrDigit(w.charAt(0));
+        boolean endWordBoundary = Character.isLetterOrDigit(w.charAt(w.length() - 1));
+        String patternStr = (startWordBoundary ? "\\b" : "") +
+                Pattern.quote(w) +
+                (endWordBoundary ? "\\b" : "");
+        try {
+            return Pattern.compile(patternStr).matcher(t).find();
+        } catch (Exception e) {
+            return t.contains(w);
         }
-        return t.contains(w);
     }
 
     private List<String> extractTokens(String text) {

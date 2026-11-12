@@ -82,8 +82,8 @@ public class CampusKnowledgeBase {
                 "• **DRP** - Officially Dropped\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 1*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("grading", "grades", "scale", "passing", "singko", "tres", "inc", "drp", "marka", "score", "grade", "4.00", "5.00", "1.00"),
-                Arrays.asList("grading system", "passing grade", "anong passing", "grades scale", "ano ang tres", "ano ang singko", "lowest passing", "ano passing grade", "passing grade sa lspu", "grading scale"),
+                Arrays.asList("grading", "grades", "scale", "passing", "singko", "tres", "inc", "drp", "marka", "score", "grade", "4.00", "5.00", "1.00", "passing grade", "lowest passing"),
+                Arrays.asList("grading system", "passing grade", "anong passing", "grades scale", "ano ang tres", "ano ang singko", "lowest passing", "ano passing grade", "passing grade sa lspu", "grading scale", "what is the passing grade", "what is a passing grade", "lowest passing mark", "official grading scale"),
                 "Chapter 3, Article 7, Sec. 1",
                 "Academics"
         ));
@@ -99,8 +99,8 @@ public class CampusKnowledgeBase {
                 "6. **Removal Fee**: ₱20.00 per unit during regular removal period (₱100.00 per unit for special removal exam).\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 5.3*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("4.00", "conditional", "removal", "tanggal", "re-examination", "alisin", "four"),
-                Arrays.asList("grade of 4.00", "paano alisin ang 4", "removal exam", "removal of 4.00", "conditional grade", "ano gagawin sa 4.00", "paano maalis ang 4"),
+                Arrays.asList("4.00", "4.0", "conditional", "removal", "tanggal", "re-examination", "alisin", "four", "conditional failure", "removal exam"),
+                Arrays.asList("grade of 4.00", "paano alisin ang 4", "removal exam", "removal of 4.00", "conditional grade", "ano gagawin sa 4.00", "paano maalis ang 4", "what happens if i get a 4.0", "what happens if i get a 4.0 grade", "policy on 4.0 grade", "how to remove 4.0", "grade 4.0 removal", "conditional failure removal"),
                 "Chapter 3, Article 7, Sec. 5.3",
                 "Academics"
         ));
@@ -115,8 +115,8 @@ public class CampusKnowledgeBase {
                 "5. **Completion Fee**: ₱20.00 per unit (₱100.00 for special completion).\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 5.4 & 5.5*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("inc", "incomplete", "completion", "resolution", "kulang", "automatic 5", "singko"),
-                Arrays.asList("paano maayos ang inc", "how to resolve inc", "incomplete grade", "ano gagawin sa inc", "pano ayusin ang inc", "resolving inc", "kailan nagiging 5 ang inc", "automatic 5.0 inc"),
+                Arrays.asList("inc", "incomplete", "completion", "resolution", "kulang", "automatic 5", "singko", "clear inc", "resolve inc", "incomplete grade"),
+                Arrays.asList("paano maayos ang inc", "how to resolve inc", "incomplete grade", "ano gagawin sa inc", "pano ayusin ang inc", "resolving inc", "kailan nagiging 5 ang inc", "automatic 5.0 inc", "how do i clear an incomplete grade", "how do i resolve an inc grade", "how to clear inc grade", "how to resolve incomplete grade", "incomplete grade resolution", "clear incomplete grade"),
                 "Chapter 3, Article 7, Sec. 5.4",
                 "Academics"
         ));
@@ -217,8 +217,8 @@ public class CampusKnowledgeBase {
                 "• **Dropping Fee**: ₱20.00 per unit (BOR Reso. 1046, s.2012).\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 6, Sec. 3 & 4*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("dropping", "drop", "change of registration", "palit", "bawas", "20 per unit", "midterm drop"),
-                Arrays.asList("paano mag drop", "drop subject", "dropping policy", "dropping fee", "change of registration", "huling araw ng dropping"),
+                Arrays.asList("dropping", "drop", "change of registration", "palit", "bawas", "20 per unit", "midterm drop", "drop subject", "drop a subject"),
+                Arrays.asList("paano mag drop", "drop subject", "dropping policy", "dropping fee", "change of registration", "huling araw ng dropping", "how to drop a subject", "how to drop subjects", "drop a subject", "dropping a subject", "dropping policy"),
                 "Chapter 3, Article 6, Sec. 4",
                 "Academics"
         ));
@@ -268,8 +268,8 @@ public class CampusKnowledgeBase {
                 "  - Must finish no less than **60% of units** in LSPU (and 75% if running for honors).\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 2, Sec. 2.9 & 2.10*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("shifting", "shift", "transfer", "lipat", "kurso", "palit", "requirements"),
-                Arrays.asList("paano mag shift", "shifting requirements", "rules sa pag shift", "transfer sa ibang college", "requirements sa pagpalit ng kurso"),
+                Arrays.asList("shifting", "shift", "transfer", "lipat", "kurso", "palit", "requirements", "course shifting", "shift course", "transferring"),
+                Arrays.asList("paano mag shift", "shifting requirements", "rules sa pag shift", "transfer sa ibang college", "requirements sa pagpalit ng kurso", "how to shift course", "how to shift to another course", "course shifting requirements", "how to transfer course", "shifting policy"),
                 "Chapter 3, Article 2, Sec. 2.10",
                 "Academics"
         ));
@@ -338,8 +338,8 @@ public class CampusKnowledgeBase {
                 "  - **Subsequent**: Suspension for two (2) weeks.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 3, Sec. 2*",
                 LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
-                Arrays.asList("cheating", "cheat", "kodigo", "exam", "dishonesty", "parusa", "sanction", "sanctions", "pangongopya", "kopya"),
-                Arrays.asList("ano parusa sa cheating", "parusa sa pangongopya", "cheating in examination", "nahuli nag cheat", "cheating sanctions", "parusa kapag nag cheat"),
+                Arrays.asList("cheating", "cheat", "kodigo", "exam", "dishonesty", "parusa", "sanction", "sanctions", "pangongopya", "kopya", "academic dishonesty"),
+                Arrays.asList("ano parusa sa cheating", "parusa sa pangongopya", "cheating in examination", "nahuli nag cheat", "cheating sanctions", "parusa kapag nag cheat", "what happens if i get caught cheating", "caught cheating in exam", "cheating penalties", "cheating in exam sanction"),
                 "Chapter 6, Article 3, Sec. 2",
                 "Discipline"
         ));
@@ -482,8 +482,8 @@ public class CampusKnowledgeBase {
                 "🏃 **P.E. Uniform**: Worn ONLY during P.E. classes; barred from regular academic classrooms.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 1*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("uniform", "dress code", "wash day", "wednesday", "friday", "bawal", "shorts", "tsinelas", "slippers", "sando", "damit", "suot", "leggings", "jogging pants", "miniskirt"),
-                Arrays.asList("uniform wash day", "kailan wash day", "dress code rules", "pwede ba mag civilian", "anong suot sa wednesday", "bawal ba shorts", "bawal ba tsinelas", "civilian day", "uniform policy", "bawal na damit", "list of prohibited attire"),
+                Arrays.asList("uniform", "dress code", "wash day", "wednesday", "friday", "bawal", "shorts", "tsinelas", "slippers", "sando", "damit", "suot", "leggings", "jogging pants", "miniskirt", "attire", "clothes", "clothing", "wear", "shoes", "sandals", "prohibited attire"),
+                Arrays.asList("uniform wash day", "kailan wash day", "dress code rules", "pwede ba mag civilian", "anong suot sa wednesday", "bawal ba shorts", "bawal ba tsinelas", "civilian day", "uniform policy", "bawal na damit", "list of prohibited attire", "what is the dress code", "can i wear shorts", "can i wear slippers", "are shorts allowed", "are slippers allowed", "dress code rules", "dress code policy", "rules on dress code", "what to wear on campus", "prohibited attire", "prohibited clothes"),
                 "Chapter 6, Article 4, Sec. 1",
                 "Campus Life"
         ));
@@ -499,8 +499,8 @@ public class CampusKnowledgeBase {
                 "• **SOP Haircut Inspection**: Conducted every **first (1st) Monday of the month** by Guard-on-Duty, Chief of Security, and OSAS.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 2*",
                 LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
-                Arrays.asList("haircut", "gupit", "buhok", "barbers", "2x3", "1x2", "hair color", "kulay", "fixie", "inspection", "lalaki", "lalake", "male", "rules", "rule"),
-                Arrays.asList("haircut rules", "rules sa haircut", "haircut ng lalaki", "haircut sa lalaki", "ano haircut sa lspu", "gupit ng lalaki", "hair inspection", "bawal ba kulay buhok", "2x3 haircut", "haircut policy", "pwede ba may kulay buhok"),
+                Arrays.asList("haircut", "hair", "gupit", "buhok", "barbers", "2x3", "1x2", "hair color", "kulay", "fixie", "inspection", "clean-cut", "male haircut", "long hair"),
+                Arrays.asList("haircut rules", "rules sa haircut", "haircut ng lalaki", "haircut sa lalaki", "ano haircut sa lspu", "gupit ng lalaki", "hair inspection", "bawal ba kulay buhok", "2x3 haircut", "haircut policy", "pwede ba may kulay buhok", "what are the rules on male haircut", "male haircut rules", "haircut rules for boys", "haircut rules for men", "can guys have long hair", "can boys have long hair", "male hair regulations"),
                 "Chapter 6, Article 4, Sec. 2",
                 "Campus Life"
         ));
@@ -533,8 +533,8 @@ public class CampusKnowledgeBase {
                 "• **Tattoos**: Permanent tattooing on exposed parts of the body is **strictly prohibited**.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 3, 4, 5*",
                 LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
-                Arrays.asList("earrings", "hikaw", "cap", "caps", "sombrero", "tattoo", "tattoos", "piercing", "bawal"),
-                Arrays.asList("pwede ba mag hikaw", "bawal ba hikaw sa lalaki", "tattoo policy", "bawal ba tattoo", "bawal ba cap sa loob", "earrings policy", "hikaw rules"),
+                Arrays.asList("earrings", "earring", "hikaw", "cap", "caps", "sombrero", "tattoo", "tattoos", "piercing", "piercings", "bawal", "male earrings", "boys earrings"),
+                Arrays.asList("pwede ba mag hikaw", "bawal ba hikaw sa lalaki", "tattoo policy", "bawal ba tattoo", "bawal ba cap sa loob", "earrings policy", "hikaw rules", "can male students wear earrings", "are male students allowed to wear earrings", "can boys wear earrings", "can guys wear earrings", "earrings rules for male", "earrings policy", "wearing caps in class", "body tattoo rules", "are piercings allowed"),
                 "Chapter 6, Article 4, Sec. 3-5",
                 "Campus Life"
         ));
@@ -552,8 +552,8 @@ public class CampusKnowledgeBase {
                 "  5. **Claiming**: Claim replacement ID upon release notice.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 3, Sec. 4 & Chapter 6, Article 4*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("id", "lost id", "nawala", "lanyard", "affidavit", "no id no entry", "replacement"),
-                Arrays.asList("nawala ang id ko", "nawala id ko", "lost id", "how to replace lost id", "no id no entry rule", "paano kumuha ng bagong id", "id replacement procedure"),
+                Arrays.asList("id", "lost id", "nawala", "lanyard", "affidavit", "no id no entry", "replacement", "id replacement", "replace id"),
+                Arrays.asList("nawala ang id ko", "nawala id ko", "lost id", "how to replace lost id", "no id no entry rule", "paano kumuha ng bagong id", "id replacement procedure", "how to replace a lost id", "what to do if id is lost", "replace lost student id"),
                 "Chapter 6, Article 3, Sec. 4",
                 "Campus Life"
         ));
@@ -577,8 +577,8 @@ public class CampusKnowledgeBase {
                 "  5. **Good Moral**: Must possess an unblemished disciplinary record.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Appendix B, Article 1*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("latin", "honors", "cum laude", "magna", "summa", "deans list", "dean's list", "honor roll"),
-                Arrays.asList("deans list requirements", "dean's list requirements", "how to be deans list", "latin honors criteria", "gwa for cum laude", "deans list", "magkano gwa sa deans list", "criteria sa cum laude"),
+                Arrays.asList("latin", "honors", "cum laude", "magna", "summa", "deans list", "dean's list", "honor roll", "latin honors"),
+                Arrays.asList("deans list requirements", "dean's list requirements", "how to be deans list", "latin honors criteria", "gwa for cum laude", "deans list", "magkano gwa sa deans list", "criteria sa cum laude", "what is the criteria for cum laude", "cum laude requirements", "magna cum laude requirements", "summa cum laude requirements", "latin honors requirements"),
                 "Appendix B, Article 1",
                 "Awards & Honors"
         ));
@@ -679,8 +679,8 @@ public class CampusKnowledgeBase {
                 "  - Exercise rights responsibly with respect for others.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Appendix A, Article 1 & 2*",
                 LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
-                Arrays.asList("rights", "karapatan", "duties", "tungkulin", "batas pambansa", "bp 232", "responsibilities"),
-                Arrays.asList("student rights", "karapatan ng estudyante", "tungkulin ng estudyante", "rights and obligations of students"),
+                Arrays.asList("rights", "karapatan", "duties", "tungkulin", "batas pambansa", "bp 232", "responsibilities", "student rights", "student duties"),
+                Arrays.asList("student rights", "karapatan ng estudyante", "tungkulin ng estudyante", "rights and obligations of students", "what are the student rights under batas pambansa 232", "student rights under batas pambansa", "student rights and duties"),
                 "Appendix A, Article 1 & 2",
                 "Student Rights"
         ));
@@ -705,8 +705,8 @@ public class CampusKnowledgeBase {
                 "3. Mayor of San Pablo City (City LGU level, CMO 34 s.2010)\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 5, Sec. 2*",
                 LocalNanoAIEngine.Intent.SUSPENSION,
-                Arrays.asList("signal", "typhoon", "bagyo", "pagasa", "baha", "ulan", "flood", "heat index", "protocol", "signal 1", "signal 2", "signal 3"),
-                Arrays.asList("may pasok ba kapag signal 1", "ano ang suspension protocol", "automatic suspension signal", "sino nag dedeklara ng suspension", "signal 1 may pasok ba", "suspension protocol", "may pasok ba bukas"),
+                Arrays.asList("signal", "typhoon", "bagyo", "pagasa", "baha", "ulan", "flood", "heat index", "protocol", "signal 1", "signal 2", "signal 3", "suspension", "suspend", "suspended", "classes suspended", "no classes"),
+                Arrays.asList("may pasok ba kapag signal 1", "ano ang suspension protocol", "automatic suspension signal", "sino nag dedeklara ng suspension", "signal 1 may pasok ba", "suspension protocol", "may pasok ba bukas", "are there classes tomorrow", "are classes suspended today", "is there school tomorrow", "do we have classes tomorrow", "class suspension protocol", "typhoon signal suspension"),
                 "Chapter 6, Article 5, Sec. 2",
                 "Suspensions"
         ));
@@ -729,8 +729,8 @@ public class CampusKnowledgeBase {
                 "• **Submission Point**: OSAS Building, LSPU-SPCC.\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 10 & Chapter 5, Art. 3, Sec. 2*",
                 LocalNanoAIEngine.Intent.SCHOLARSHIP,
-                Arrays.asList("tdp", "ched", "tulong dunong", "stipend", "allowance", "validation", "payout", "qualifiers"),
-                Arrays.asList("tdp requirements", "tdp scholarship", "tdp scholarship requirements", "kailan release ng tdp", "tulong dunong requirements", "paano mag validate ng tdp"),
+                Arrays.asList("tdp", "ched", "tulong dunong", "stipend", "allowance", "validation", "payout", "qualifiers", "tdp scholarship"),
+                Arrays.asList("tdp requirements", "tdp scholarship", "tdp scholarship requirements", "kailan release ng tdp", "tulong dunong requirements", "paano mag validate ng tdp", "what are the requirements for tdp scholarship", "ched tdp requirements", "how to apply for tdp"),
                 "Chapter 3, Article 10",
                 "Scholarship"
         ));
@@ -774,8 +774,8 @@ public class CampusKnowledgeBase {
                 "⏰ **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed weekends & holidays).\n\n" +
                 "📖 *Ref: LSPU Student Handbook 2021, Chapter 5*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("directory", "saan", "location", "building", "opisina", "office", "registrar", "cashier", "accounting", "guidance"),
-                Arrays.asList("saan ang opisina", "campus directory", "saan ang registrar", "saan ang accounting", "location ng mga office", "registrar location", "saan makikita ang registrar"),
+                Arrays.asList("directory", "saan", "location", "building", "opisina", "office", "offices", "where", "registrar", "cashier", "accounting", "guidance", "osas", "clinic", "library", "admin", "mis", "ict", "hours", "office hours", "operating hours"),
+                Arrays.asList("saan ang opisina", "campus directory", "saan ang registrar", "saan ang accounting", "location ng mga office", "registrar location", "saan makikita ang registrar", "where is the registrar", "where is the osas office", "where is the cashier", "where is accounting", "campus directory", "office hours", "registrar office hours", "osas office hours", "where can i find the registrar"),
                 "Chapter 5",
                 "Campus Life"
         ));
@@ -797,6 +797,85 @@ public class CampusKnowledgeBase {
                 "Emergency Directory",
                 "Campus Life"
         ));
+        // =========================================================================
+        // 8. ADMISSIONS & STUDENT SERVICES (Clinic, Library, Guidance & Good Moral)
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Undergraduate Admission, Board Program Standards & English Requirements",
+                "📋 **Undergraduate Admission & General Weighted Average (GWA) Requirements**\n\n" +
+                "• **Free Higher Education (UniFAST RA 10687)**: Exemption from tuition and other school fees for eligible undergraduate students.\n" +
+                "• **Non-discriminatory Admission**: Equal opportunity for all regardless of age, sex, gender, nationality, belief, political affiliation, PWDs, indigenous peoples, solo parents.\n" +
+                "• **Priority Course GWA Requirements (Form 138)**:\n" +
+                "  - **GWA 85 and above**: Accountancy, Engineering, Nursing, Information Technology, Psychology, Biology, Mathematics, Criminology, Agriculture, Teacher Education, and other Board Programs.\n" +
+                "  - **GWA 82 and above**: Hotel and Restaurant Management, Tourism, Industrial Technology.\n" +
+                "• **Board Examination Subject Rule / English Proficiency Check**:\n" +
+                "  - Students entering board programs must not have a grade below **85 in English, Science, and Mathematics**.\n" +
+                "  - Grade verification is conducted during admission screening and entrance evaluation.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 2, Sec. 1-2 & 2.6*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("admission", "admissions", "entrance", "gwa", "unifast", "form 138", "board programs", "board program", "english", "science", "mathematics", "proficiency", "85", "82", "admission requirements"),
+                Arrays.asList("admission requirements", "english proficiency check", "english grade requirement", "board program english requirement", "english proficiency requirement", "gwa requirement for admission", "form 138 grade requirement", "entrance exam requirements", "grade below 85 in english", "english requirement"),
+                "Chapter 3, Article 2, Sec. 1-2 & 2.6",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Health Services Unit (Campus Clinic) & Medical Services",
+                "🏥 **Health Services Unit (Campus Clinic) & Medical Services**\n\n" +
+                "• **Location**: Adjacent to the Physical Plant Office.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed on weekends and holidays).\n" +
+                "• **Available Services**:\n" +
+                "  - Basic outpatient consultations and medical assessment\n" +
+                "  - Emergency first aid treatment and crisis stabilization\n" +
+                "  - Issuance of Medical Certificates for Excuse Slips and OJT deployment\n" +
+                "  - Annual physical checkups and health monitoring\n" +
+                "  - Free basic over-the-counter emergency medications\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 4, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("clinic", "health", "medical", "doctor", "nurse", "first aid", "gamot", "pagamutan", "med cert", "medical certificate", "checkup", "emergency", "sick", "illness", "health services"),
+                Arrays.asList("where is the clinic", "clinic hours", "campus clinic location", "where to find clinic", "what time does clinic open", "medical certificate clinic", "clinic schedule", "health services unit", "saan ang clinic", "oras ng clinic"),
+                "Chapter 5, Article 4, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "University Campus Library Services, Book Borrowing & Hours",
+                "📚 **LSPU Campus Library Services & Borrowing Policies**\n\n" +
+                "• **Location**: Academic Building 2, 2nd & 3rd Floors.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
+                "• **Library Sections & Resources**:\n" +
+                "  - Circulation & Reserve Section (Textbooks, general reference)\n" +
+                "  - Theses & Dissertations / Special Collections\n" +
+                "  - Electronic Library (E-Library) & Internet Research Stations\n" +
+                "  - Periodicals & Serials Section (Journals, newspapers, magazines)\n" +
+                "• **Access & Requirements**: Valid LSPU Student ID with lanyard or Library Card is required for entry and borrowing.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 5, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("library", "books", "borrow", "reading", "study", "theses", "archives", "e-library", "aklatan", "hiram", "libro", "library card", "circulation"),
+                Arrays.asList("where is the library", "library hours", "what time does the library open", "campus library location", "borrow books from library", "library opening hours", "where to find library", "library schedule", "saan ang library", "oras ng library"),
+                "Chapter 5, Article 5, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Guidance and Counseling Center: Good Moral Certificate & Support",
+                "🧭 **Guidance & Counseling Center & Good Moral Issuance**\n\n" +
+                "• **Location**: 2nd Floor, Student Services Building.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
+                "• **Services Provided**:\n" +
+                "  - **Certificate of Good Moral Character**: Official issuance for scholarships, employment, transfer, and board examinations.\n" +
+                "  - **Excuse Slips**: Validation and endorsement of excuse slips for class absences.\n" +
+                "  - **Individual & Group Counseling**: Confidential psychological counseling and emotional support.\n" +
+                "  - **Appraisal & Testing**: Psychological testing and personality evaluations.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 3, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("guidance", "good moral", "certificate of good moral", "counseling", "counselor", "excuse slip", "moral character", "good moral certificate", "moral"),
+                Arrays.asList("how to get good moral certificate", "where to get good moral", "good moral requirements", "how to get a good moral certificate", "certificate of good moral", "good moral certificate procedure", "where is guidance office", "guidance counseling", "paano kumuha ng good moral", "saan kukuha ng good moral"),
+                "Chapter 5, Article 3, Sec. 1",
+                "Campus Life"
+        ));
+
     }
 
     /**
@@ -809,7 +888,7 @@ public class CampusKnowledgeBase {
         }
 
         String q = query.toLowerCase(Locale.ROOT).trim();
-        String cleanQ = q.replaceAll("[^a-z0-9\\s]", " ");
+        String cleanQ = q.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
 
         KnowledgeEntry bestEntry = null;
         int maxScore = 0;
@@ -819,8 +898,8 @@ public class CampusKnowledgeBase {
 
             // 1. Exact phrase matches (High weight +10)
             for (String phrase : entry.keyPhrases) {
-                String cleanPhrase = phrase.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9\\s]", " ");
-                if (q.contains(phrase) || cleanQ.contains(cleanPhrase)) {
+                String cleanPhrase = phrase.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+                if (q.contains(phrase.toLowerCase(Locale.ROOT)) || (!cleanPhrase.isEmpty() && cleanQ.contains(cleanPhrase))) {
                     score += 10;
                     break;
                 }
@@ -850,12 +929,18 @@ public class CampusKnowledgeBase {
     private static boolean matchesWord(String text, String word) {
         if (text == null || word == null) return false;
         String t = text.toLowerCase(Locale.ROOT);
-        String w = word.toLowerCase(Locale.ROOT);
-        if (w.length() <= 3) {
-            Pattern p = Pattern.compile("\\b" + Pattern.quote(w) + "\\b");
-            return p.matcher(t).find();
+        String w = word.toLowerCase(Locale.ROOT).trim();
+        if (w.isEmpty()) return false;
+        boolean startWordBoundary = Character.isLetterOrDigit(w.charAt(0));
+        boolean endWordBoundary = Character.isLetterOrDigit(w.charAt(w.length() - 1));
+        String patternStr = (startWordBoundary ? "\\b" : "") +
+                Pattern.quote(w) +
+                (endWordBoundary ? "\\b" : "");
+        try {
+            return Pattern.compile(patternStr).matcher(t).find();
+        } catch (Exception e) {
+            return t.contains(w);
         }
-        return t.contains(w);
     }
 
     /**

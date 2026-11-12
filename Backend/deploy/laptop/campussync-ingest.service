@@ -1,0 +1,11 @@
+[Unit]
+Description=CampusSync: fetch new posts (and run the AI extractor)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@BACKEND@
+EnvironmentFile=%h/.config/campussync/campussync.env
+ExecStart=@BACKEND@/.venv/bin/python ingest.py
+# Turn this on once Benedict's ai_extractor.py is finished:
+#ExecStartPost=-@BACKEND@/.venv/bin/python ai_extractor.py

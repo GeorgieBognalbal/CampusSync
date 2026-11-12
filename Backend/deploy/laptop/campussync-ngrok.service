@@ -1,0 +1,11 @@
+[Unit]
+Description=CampusSync public link (ngrok)
+After=network-online.target campussync-server.service
+
+[Service]
+ExecStart=@NGROK_CMD@
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

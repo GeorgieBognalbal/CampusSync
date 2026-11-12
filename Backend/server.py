@@ -4,18 +4,38 @@ import os
 import sys
 
 from flask import Flask, jsonify, request
+from dotenv import load_dotenv
 
-# Lets this file run from any folder (python Backend/server.py or python server.py).
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# CONFIGURATION
+
+# Get the directory containing server.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Allow imports regardless of working directory
+sys.path.insert(0, BASE_DIR)
+
+# Load the actual .env file from Backend/
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 import db  # noqa: E402
 
-API_KEY = os.environ.get("CAMPUSSYNC_API_KEY", "dev-key-change-me")
+# Read configuration from .env
+API_KEY = os.environ.get("CAMPUSSYNC_API_KEY")
 MAX_LIMIT = 100
 
+# Fail early if the API key is missing
+if not API_KEY:
+    raise RuntimeError(
+        "CAMPUSSYNC_API_KEY is missing! Check your Backend/.env file."
+    )
+
+PORT = int(os.environ.get("PORT", 5001))
+
 app = Flask(__name__)
+
 db.init_db()
 
+# HEALTH CHECK
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
@@ -26,27 +46,40 @@ def health_check():
         "server_time": db.now_ms(),
     }), 200
 
+# ANNOUNCEMENT SYNCHRONIZATION
 
 @app.route("/api/announcements/sync", methods=["GET"])
 def sync_announcements():
-    # Phones send the key in a header. Wrong or missing key -> 401.
+
+    # Authenticate Android application
     key = request.headers.get("X-API-Key", "")
+
     if not hmac.compare_digest(key, API_KEY):
-        return jsonify({"success": False, "message": "Missing or wrong X-API-Key"}), 401
+        return jsonify({
+            "success": False,
+            "message": "Missing or wrong X-API-Key"
+        }), 401
 
     try:
         since = int(request.args.get("since", 0))
         limit = int(request.args.get("limit", MAX_LIMIT))
+
     except ValueError:
-        return jsonify({"success": False, "message": "since and limit must be numbers"}), 400
+        return jsonify({
+            "success": False,
+            "message": "since and limit must be numbers"
+        }), 400
+
     if since < 0 or not 1 <= limit <= MAX_LIMIT:
-        return jsonify({"success": False,
-                        "message": f"since must be >= 0 and limit between 1 and {MAX_LIMIT}"}), 400
+        return jsonify({
+            "success": False,
+            "message": f"since must be >= 0 and limit between 1 and {MAX_LIMIT}"
+        }), 400
 
     try:
-        # Reads from the database (filled by ingest.py), not live from Facebook,
-        # so syncing is fast and works even if FetchRSS is down.
+        # Retrieve announcements from SQLite
         rows, has_more = db.get_changed_since(since, limit)
+
         return jsonify({
             "success": True,
             "announcements": rows,
@@ -56,7 +89,6 @@ def sync_announcements():
         }), 200
 
     except Exception as error:
-
         app.logger.exception("Announcement synchronization failed")
 
         return jsonify({
@@ -68,22 +100,18 @@ def sync_announcements():
 
 # START SERVER
 
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-
-    if API_KEY == "dev-key-change-me":
-        print("WARNING: default API key. Set CAMPUSSYNC_API_KEY before a real deploy.")
 
     print("===================================")
     print("         KALEO BACKEND")
     print("===================================")
-    print(f"Server running on port {port}")
+    print(f"Server running on port {PORT}")
     print("API: /api/announcements/sync")
+    print("API key loaded successfully:", bool(API_KEY))
     print("===================================")
 
     app.run(
         host="0.0.0.0",
-        port=port,
+        port=PORT,
         debug=False
     )

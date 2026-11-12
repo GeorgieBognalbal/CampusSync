@@ -1,0 +1,16 @@
+[Unit]
+Description=CampusSync sync API on this laptop (gunicorn + Flask)
+After=network-online.target
+
+[Service]
+WorkingDirectory=@BACKEND@
+EnvironmentFile=%h/.config/campussync/campussync.env
+# 0.0.0.0 so your phone can reach it over Wi-Fi or adb reverse.
+# Log line: real_ip = the visitor's IP that ngrok forwards ("-" for USB / Wi-Fi requests).
+# ("%%" is how a systemd unit file writes a single "%".)
+ExecStart=@BACKEND@/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:5000 --access-logfile - --access-logformat "real_ip=%%({x-forwarded-for}i)s from=%%(h)s %%(r)s status=%%(s)s bytes=%%(b)s device=%%(a)s" server:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

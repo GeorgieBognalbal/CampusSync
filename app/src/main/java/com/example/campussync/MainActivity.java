@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.Gravity;
@@ -43,6 +44,7 @@ import com.example.campussync.notifications.KaleoReminders;
 import com.example.campussync.data.repository.AnnouncementRepository;
 import com.example.campussync.sync.SyncScheduler;
 import com.example.campussync.sync.SyncState;
+import com.example.campussync.util.MarkdownFormatter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -628,7 +630,8 @@ public class MainActivity extends Activity {
                 if (isFinishing() || currentTab != 0) return;
                 Category c = Category.of(latest.message);
                 String prefix = c == Category.SUSPENSION ? "⚠ " : "";
-                title.setText(prefix + shorten(latest.message, 110));
+                title.setText(new SpannableStringBuilder(prefix)
+                        .append(shorten(MarkdownFormatter.format(latest.message), 110)));
                 caption.setText(latest.pageName + "  •  "
                         + relativeTime(latest.createdAt) + "   Tap to open ↗");
                 card.setOnClickListener(v -> openUrl(latest.permalink));
@@ -737,7 +740,7 @@ public class MainActivity extends Activity {
         outer.addView(top);
 
         TextView message = text(
-                item.message, 14, BODY, false
+                MarkdownFormatter.format(item.message), 14, BODY, false
         );
 
         message.setLineSpacing(dp(4), 1f);
@@ -1079,7 +1082,7 @@ public class MainActivity extends Activity {
 
         String tag = result.isOfflineAnswer
                 ? "⚡ [" + latencyMs + "ms • Local Nano AI]\n"
-                : "☁️ [" + latencyMs + "ms • Cloud Fallback]\n";
+                : "☁️ [" + latencyMs + "ms • Cloud AI]\n";
 
         return new ChatMessage(tag + result.answer, ChatMessage.Sender.BOT, sources);
     }
@@ -1147,7 +1150,7 @@ public class MainActivity extends Activity {
         if (m.isThinking()) {
             bubble.addView(typingDots());
         } else {
-            TextView body = text(m.getText(), 14, BODY, false);
+            TextView body = text(MarkdownFormatter.format(m.getText()), 14, BODY, false);
             body.setLineSpacing(dp(2), 1f);
             body.setMaxWidth(maxWidth - dp(64));
             bubble.addView(body);
@@ -1227,7 +1230,7 @@ public class MainActivity extends Activity {
         LinearLayout info = column();
         info.setPadding(dp(8), 0, dp(8), 0);
         info.addView(text(s.getPageName(), 12, DARK, true));
-        TextView snip = text(shorten(s.getSnippet(), 70), 11, MUTED, false);
+        TextView snip = text(shorten(MarkdownFormatter.format(s.getSnippet()), 70), 11, MUTED, false);
         snip.setMaxLines(1);
         snip.setEllipsize(TextUtils.TruncateAt.END);
         info.addView(snip);
@@ -1246,9 +1249,14 @@ public class MainActivity extends Activity {
         contentScroll.post(() -> contentScroll.fullScroll(View.FOCUS_DOWN));
     }
 
-    private String shorten(String s, int max) {
+    private CharSequence shorten(CharSequence s, int max) {
         if (s == null) return "";
-        return s.length() <= max ? s : s.substring(0, max).trim() + "…";
+        if (s.length() <= max) return s;
+        int end = max;
+        while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
+            end--;
+        }
+        return new SpannableStringBuilder(s, 0, end).append("…");
     }
 
     // =========================
@@ -2145,7 +2153,7 @@ public class MainActivity extends Activity {
     }
 
     private TextView text(
-            String value, int size, int color, boolean bold) {
+            CharSequence value, int size, int color, boolean bold) {
 
         TextView view = new TextView(this);
 

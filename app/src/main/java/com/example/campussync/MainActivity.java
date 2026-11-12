@@ -1262,6 +1262,12 @@ public class MainActivity extends Activity {
                     result.primarySource.message,
                     result.primarySource.permalink
             ));
+        } else if (result.handbookCitation != null && !result.handbookCitation.isEmpty()) {
+            sources.add(new ChatMessage.Source(
+                    "LSPU Student Handbook 2021",
+                    result.handbookCitation,
+                    "https://www.lspu.edu.ph"
+            ));
         }
 
         String tag = result.isOfflineAnswer
@@ -1406,10 +1412,11 @@ public class MainActivity extends Activity {
         card.setBackgroundResource(R.drawable.source_card_background);
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
 
-        TextView fb = text("f", 14, WHITE, true);
-        fb.setGravity(Gravity.CENTER);
-        fb.setBackground(roundDrawable(0xFF1877F2, 8));
-        card.addView(fb, params(28, 28));
+        boolean isHandbook = s.getPageName() != null && s.getPageName().contains("Handbook");
+        TextView icon = text(isHandbook ? "📖" : "f", isHandbook ? 13 : 14, WHITE, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(roundDrawable(isHandbook ? 0xFF0D3B66 : 0xFF1877F2, 8));
+        card.addView(icon, params(28, 28));
 
         LinearLayout info = column();
         info.setPadding(dp(8), 0, dp(8), 0);
@@ -1477,8 +1484,36 @@ public class MainActivity extends Activity {
                     SOURCES[i][3], getColor(SOURCE_TINTS[i]), countText);
         }
 
+        // LSPU Student Handbook 2021 Official Grounding Source
+        LinearLayout hbCard = row();
+        hbCard.setGravity(Gravity.CENTER_VERTICAL);
+        hbCard.setBackgroundResource(R.drawable.source_card_background);
+        hbCard.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+        TextView hbIcon = text("📖", 14, WHITE, true);
+        hbIcon.setGravity(Gravity.CENTER);
+        hbIcon.setBackground(roundDrawable(0xFF0D3B66, 8));
+        hbCard.addView(hbIcon, params(32, 32));
+
+        LinearLayout hbInfo = column();
+        hbInfo.setPadding(dp(10), 0, dp(10), 0);
+        hbInfo.addView(text("LSPU Student Handbook 2021", 12, DARK, true));
+        TextView hbSub = text("Doc. No. LSPU-PM-LSH-01 • All Campuses", 11, MUTED, false);
+        hbInfo.addView(hbSub);
+        hbCard.addView(hbInfo, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView hbBadge = text("OFFLINE READY", 9, SUCCESS, true);
+        hbBadge.setBackground(roundDrawable(getColor(R.color.soft_green), 4));
+        hbBadge.setPadding(dp(6), dp(3), dp(6), dp(3));
+        hbCard.addView(hbBadge);
+
+        LinearLayout.LayoutParams hbp = params(-1, -2);
+        hbp.topMargin = dp(8);
+        hbp.bottomMargin = dp(8);
+        panel.addView(hbCard, hbp);
+
         TextView note = text(
-                "Posts are synced from these pages and saved on this device, so answers still work offline.",
+                "Posts are synced from these pages and the LSPU Student Handbook is stored 100% locally on-device, so answers work instantly offline.",
                 11, MUTED, false);
         LinearLayout.LayoutParams np = params(-1, -2);
         np.topMargin = dp(4);

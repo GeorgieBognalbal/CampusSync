@@ -145,10 +145,15 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         conn.setReadTimeout(9000);
         conn.setDoOutput(true);
 
-        // Grounding context if a source post exists
+        // Grounding context if a source post exists or handbook rule matches
         String contextSnippet = "";
         if (cachedSource != null && cachedSource.message != null && !cachedSource.message.trim().isEmpty()) {
             contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message.trim() + "\"";
+        } else {
+            CampusKnowledgeBase.KnowledgeEntry kbMatch = CampusKnowledgeBase.findBestMatch(userQuery, LocalNanoAIEngine.Intent.UNKNOWN);
+            if (kbMatch != null) {
+                contextSnippet = "\n\nRelevant LSPU Student Handbook 2021 Reference (" + kbMatch.citation + "):\n\"" + kbMatch.content + "\"";
+            }
         }
 
         String prompt = "You are Kaleo Cloud AI, the official intelligent assistant exclusively for Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n\n" +

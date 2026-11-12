@@ -275,35 +275,41 @@ public class LocalNanoAIEngine {
     }
 
     /**
-     * Executes Path 3: Hybrid Edge-First Nano RAG with Cloud Fallback.
-     * Evaluates local cache first in <15ms. If local confidence is low and device is online,
-     * routes to CloudFallbackProvider for multi-tier expansion.
+     * Executes Cloud-First Hybrid Intelligence with Local Delegation & Fallback.
+     * Defaults to Cloud AI first when device is online.
+     * If the query requires on-device local announcements or Cloud AI delegates to local,
+     * it seamlessly transfers the query to the on-device local engine.
      */
     public NanoAIResult processHybridQuery(String userQuery,
                                           List<AnnouncementEntity> cachedPosts,
                                           CloudFallbackProvider cloudProvider) {
-        NanoAIResult localResult = processQuery(userQuery, cachedPosts);
-
-        // Edge-First priority:
-        // 1. Grounded announcement match from Room DB with high confidence
-        if (localResult.primarySource != null && localResult.confidence >= 0.55f) {
-            return localResult;
-        }
-
-        // 2. Knowledge Base matches, pure conversational greetings, and identity stay local (<2ms)
-        if (localResult.confidence >= 0.90f ||
-                localResult.detectedIntent == Intent.GREETING ||
-                localResult.detectedIntent == Intent.GRATITUDE ||
-                localResult.detectedIntent == Intent.IDENTITY) {
-            return localResult;
-        }
-
-        // 3. When device is ONLINE, route broader queries or ungrounded questions to Cloud AI
+        // 1. Defaults to Cloud AI first when device is online
         if (cloudProvider != null && cloudProvider.isOnline()) {
-            return cloudProvider.queryCloudFallback(userQuery, localResult.detectedIntent, localResult.primarySource);
+            NanoAIResult localCandidate = processQuery(userQuery, cachedPosts);
+            AnnouncementEntity sourceToPass = (localCandidate != null && localCandidate.primarySource != null)
+                    ? localCandidate.primarySource : null;
+            Intent intentToPass = localCandidate != null ? localCandidate.detectedIntent : Intent.GENERAL;
+
+            NanoAIResult cloudResult = cloudProvider.queryCloudFallback(
+                    userQuery,
+                    intentToPass,
+                    sourceToPass
+            );
+
+            // If Cloud AI resolved the query directly (without delegating), return Cloud AI result
+            if (cloudResult != null && cloudResult.answer != null &&
+                    !cloudResult.answer.contains("[TRANSFER_TO_LOCAL]")) {
+                return cloudResult;
+            }
+
+            // Cloud AI requested transfer to local engine or cloud call was delegated
+            if (localCandidate != null) {
+                return localCandidate;
+            }
         }
 
-        return localResult;
+        // 2. When device is offline or Cloud AI is unavailable, transfer query to local engine
+        return processQuery(userQuery, cachedPosts);
     }
 
     /**

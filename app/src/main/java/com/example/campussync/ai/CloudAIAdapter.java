@@ -99,10 +99,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                                                             LocalNanoAIEngine.Intent detectedIntent,
                                                             AnnouncementEntity cachedSource) {
         if (!isOnline()) {
-            return new LocalNanoAIEngine.NanoAIResult(
-                    "Device is currently offline. Connect to Wi-Fi or mobile data for live Cloud AI expansion, or check your local cached announcements.",
-                    detectedIntent, 0.20f, null, true
-            );
+            return null; // Triggers transfer to local engine
         }
 
         String apiKey = BuildConfig.GEMINI_API_KEY;
@@ -113,6 +110,11 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 try {
                     String liveAnswer = callGeminiLive(modelName, userQuery, cachedSource, apiKey.trim());
                     if (liveAnswer != null && !liveAnswer.trim().isEmpty()) {
+                        // Check if Cloud AI evaluated the query and determined it should be resolved locally
+                        if (liveAnswer.trim().equals("[TRANSFER_TO_LOCAL]") || liveAnswer.contains("[TRANSFER_TO_LOCAL]")) {
+                            Log.d(TAG, "Cloud AI evaluated query and delegated transfer to local engine: " + userQuery);
+                            return null; // Signals transfer to local engine
+                        }
                         return new LocalNanoAIEngine.NanoAIResult(
                                 liveAnswer,
                                 detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
@@ -127,16 +129,8 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
             }
         }
 
-        // 2. Graceful fallback: Consult CampusKnowledgeBase and synthesize structured guidance
-        String expandedAnswer = buildExpandedCloudResponse(userQuery, detectedIntent, apiKey);
-
-        return new LocalNanoAIEngine.NanoAIResult(
-                expandedAnswer,
-                detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
-                0.90f,
-                cachedSource,
-                true // isOfflineAnswer = true since this is served locally from knowledge base
-        );
+        // If cloud models are unavailable or API key missing, return null to transfer to local engine
+        return null;
     }
 
     /**
@@ -157,9 +151,10 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
             contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message.trim() + "\"";
         }
 
-        String prompt = "You are Kaleo Cloud AI, an intelligent, friendly student assistant for Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC). " +
-                "Answer the student's question helpfully, accurately, and concisely in English or Taglish. " +
-                "Be polite and informative. If asking about campus facilities, offices, programs, or rules, refer accurately to LSPU San Pablo City Campus." +
+        String prompt = "You are Kaleo Cloud AI, the primary intelligent assistant for students at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
+                "Answer the student's question helpfully, accurately, and concisely in English or Taglish.\n\n" +
+                "Evaluation Rule:\n" +
+                "If the student is specifically asking about today's real-time class suspension, latest official campus announcements, or specific Facebook posts, and no relevant announcement is provided in the context below, respond with exactly: [TRANSFER_TO_LOCAL]\n" +
                 contextSnippet +
                 "\n\nStudent Question: " + userQuery.trim();
 
@@ -239,64 +234,5 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         } catch (Exception e) {
             return "";
         }
-    }
-
-    private String buildExpandedCloudResponse(String userQuery, LocalNanoAIEngine.Intent detectedIntent, String apiKey) {
-        String q = userQuery.toLowerCase(Locale.ROOT).trim();
-
-        // 1. Try comprehensive CampusKnowledgeBase first
-        CampusKnowledgeBase.KnowledgeEntry kbMatch = CampusKnowledgeBase.findBestMatch(q, detectedIntent);
-        if (kbMatch != null && kbMatch.content != null && !kbMatch.content.trim().isEmpty()) {
-            return kbMatch.content;
-        }
-
-        // 2. Specific intent-based campus guidance
-        String body;
-        if (detectedIntent == LocalNanoAIEngine.Intent.SUSPENSION) {
-            body = "✅ **Class Suspension Inquiries**\n\n" +
-                    "Classes remain regular unless an official announcement is issued by the LSPU Administration or the San Pablo City LGU.\n\n" +
-                    "• Check the official **LSPU - San Pablo City Campus Facebook Page** for verified weather or emergency suspension bulletins.\n" +
-                    "• Pull down the Feed tab to sync the latest announcements.";
-        } else if (detectedIntent == LocalNanoAIEngine.Intent.SCHOLARSHIP) {
-            body = "🎓 **Scholarship & Financial Assistance**\n\n" +
-                    "LSPU-SPCC students can apply for government and institutional financial grants:\n\n" +
-                    "• **Tulong Dunong Program (TDP-TES)** & **CHED Tertiary Education Subsidy (TES)**\n" +
-                    "• **Iskolar ng Laguna** & San Pablo City Educational Assistance\n" +
-                    "• **UniFAST Free Higher Education** (RA 10931)\n\n" +
-                    "For application periods and document submission, visit the **Office of Student Affairs and Services (OSAS)** in the Administration Building.";
-        } else if (q.contains("course") || q.contains("program") || q.contains("degree") || q.contains("curriculum") || q.contains("major")) {
-            body = "Laguna State Polytechnic University (LSPU) San Pablo City Campus offers recognized undergraduate programs:\n\n" +
-                    "• **College of Computer Studies (CCS)**: BS Computer Science (BSCS), BS Information Technology (BSIT)\n" +
-                    "• **College of Teacher Education (CTE)**: BSED (English, Math, Science, Filipino, Social Studies), BEED\n" +
-                    "• **College of Business Management & Accountancy (CBMA)**: BSA, BSBA (Financial / Marketing), BS Entrep\n" +
-                    "• **College of Engineering (COE)**: BS Civil, Mechanical, Electrical, Computer Engineering\n" +
-                    "• **College of Industrial Technology (CIT)**: BIT (Automotive, Electrical, Electronics, Mechanical)\n" +
-                    "• **College of Arts & Sciences (CAS)**: BA Communication, BS Mathematics\n" +
-                    "• **College of Criminal Justice Education (CCJE)**: BS Criminology\n\n" +
-                    "For admission requirements and entrance examination schedules, visit the SPCC Registrar's Office.";
-        } else if (q.contains("portal") || q.contains("grades") || q.contains("account") || q.contains("password") || q.contains("cor")) {
-            body = "You can access your official LSPU student portal at **https://lspu.edu.ph/portal** to view:\n\n" +
-                    "• Verified midterm and final grades\n" +
-                    "• Certificate of Registration (COR) and enrolled units\n" +
-                    "• Semester billing assessments and clearances\n\n" +
-                    "If you forgot your student password or portal login, visit the campus ICT/MIS unit in the Administration Building.";
-        } else if (q.contains("president") || q.contains("campus director") || q.contains("dean") || q.contains("officials")) {
-            body = "Laguna State Polytechnic University is guided by University President Dr. Mario R. Briones and the SPCC Campus Administration. College deans and department chairpersons hold office at their respective academic buildings.";
-        } else if (q.contains("library") || q.contains("book") || q.contains("thesis") || q.contains("study")) {
-            body = "The LSPU-SPCC Campus Library is open Monday to Friday, 8:00 AM to 5:00 PM. Students can borrow references, access academic journals, or utilize quiet study spaces by presenting a validated student ID.";
-        } else {
-            body = "I couldn't reach the live AI service right now to answer **\"" + userQuery.trim() + "\"**.\n\n" +
-                    "Here are helpful LSPU-SPCC resources:\n" +
-                    "• **Campus Administration**: The Registrar, OSAS, and Accounting are open Mon–Fri, 8:00 AM – 5:00 PM at the Administration Building.\n" +
-                    "• **Online Portal**: Check grades and enrolled subjects at **https://lspu.edu.ph/portal**.\n" +
-                    "• **Feed Sync**: Pull down the Feed tab to get the latest official university announcements.";
-        }
-
-        // Help notice if GEMINI_API_KEY is not yet added
-        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("null")) {
-            return body + "\n\n💡 *Tip: To enable live Gemini Flash generative reasoning for open queries, add `campussync.geminiApiKey=YOUR_KEY` in local.properties.*";
-        }
-
-        return body;
     }
 }

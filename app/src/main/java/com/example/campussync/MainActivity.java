@@ -22,6 +22,9 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
+import com.bumptech.glide.Glide;
+import org.json.JSONArray;
+import org.json.JSONException;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -772,6 +775,29 @@ public class MainActivity extends Activity {
 
         outer.addView(message, mp);
 
+        JSONArray imageUrls = safeImageArray(item.imageUrls);
+        if (imageUrls.length() > 0) {
+            HorizontalScrollView galleryScroll = new HorizontalScrollView(this);
+            galleryScroll.setHorizontalScrollBarEnabled(false);
+            LinearLayout gallery = row();
+            for (int imageIndex = 0; imageIndex < imageUrls.length(); imageIndex++) {
+                String imageUrl = imageUrls.optString(imageIndex, "");
+                if (imageUrl.isEmpty()) continue;
+                ImageView image = new ImageView(this);
+                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                image.setBackground(roundDrawable(PALE, 10));
+                LinearLayout.LayoutParams imageParams = params(260, 170);
+                imageParams.rightMargin = dp(8);
+                gallery.addView(image, imageParams);
+                Glide.with(this).load(imageUrl).placeholder(R.drawable.ic_empty)
+                        .error(R.drawable.ic_empty).centerCrop().into(image);
+            }
+            galleryScroll.addView(gallery);
+            LinearLayout.LayoutParams galleryParams = params(-1, 170);
+            galleryParams.bottomMargin = dp(12);
+            outer.addView(galleryScroll, galleryParams);
+        }
+
         // The AI summary is shown first; the full post opens below it on tap
         String fullText = item.message == null ? "" : item.message.trim();
         if (hasTakeaway && !fullText.isEmpty() && !fullText.equals(item.keyTakeaway.trim())) {
@@ -824,6 +850,12 @@ public class MainActivity extends Activity {
 
         addView(parent, outer, 0, 12);
         return outer;
+    }
+
+    private JSONArray safeImageArray(String json) {
+        if (json == null || json.trim().isEmpty()) return new JSONArray();
+        try { return new JSONArray(json); }
+        catch (JSONException ignored) { return new JSONArray(); }
     }
 
     /** The AI's one-line takeaway when there is one, otherwise the post text. */

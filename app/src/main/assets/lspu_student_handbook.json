@@ -1,0 +1,259 @@
+{
+  "edition": "2021 Edition",
+  "document_no": "LSPU-PM-LSH-01",
+  "title": "Laguna State Polytechnic University Student Handbook",
+  "approved_by": "Board Resolution No. 111, series of 2021",
+  "effective_date": "December 2021",
+  "sections": [
+    {
+      "id": "ch1_history",
+      "chapter": "Chapter 1: LSPU Historical Development and Officials",
+      "article": "Historical Development",
+      "section": "General History",
+      "category": "General Information",
+      "title": "Historical Development of LSPU",
+      "content": "• Established in 1952 as Baybay Provincial High School (first public high school on Laguna de Bay shoreline).\n• Converted in 1957 to Baybay Agricultural and Vocational School (BNAVS) by RA 1807.\n• Converted in 1971 to Baybay National College of Agriculture and Technology (BNCAT) by RA 6327.\n• Converted in 1983 to Laguna State Polytechnic College (LSPC).\n• Converted on March 22, 2007 to Laguna State Polytechnic University (LSPU) under RA 9402.\n• Regular Campuses: Sta. Cruz (Main), Siniloan (Host), San Pablo City, Los Baños.\n• Extension/Satellite Campuses: Lopez Quezon, Nagcarlan, Liliw.",
+      "keywords": ["history", "background", "established", "1952", "ra 9402", "campuses", "sta cruz", "siniloan", "san pablo", "los banos", "liliw", "nagcarlan", "lopez quezon"]
+    },
+    {
+      "id": "ch1_officials",
+      "chapter": "Chapter 1: LSPU Historical Development and Officials",
+      "article": "Administrative Officials",
+      "section": "University Leadership",
+      "category": "General Information",
+      "title": "LSPU University Leadership & Key Officials",
+      "content": "• University President: Dr. Mario R. Briones, Ed.D.\n• Vice President for Academic Affairs: Dr. Eden C. Callo\n• Vice President for Administration: Engr. Beltran P. Pedrigal, MSA\n• Vice President for Research Development and Extension: Dr. Robert C. Agatep\n• Board of Regents: Chaired by CHED Commissioner, co-chaired by University President.",
+      "keywords": ["officials", "president", "briones", "callo", "pedrigal", "agatep", "vpaa", "administration", "leadership", "board of regents"]
+    },
+    {
+      "id": "ch3_art1_classification",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 1: Classifications of Students",
+      "section": "Sec. 1-3: Admission, Curriculum Level & Placement",
+      "category": "Academics",
+      "title": "Classification of Undergraduate Students",
+      "content": "1. Based on Admission:\n• New Student: Enrolled in university for the first time.\n• Transferee Student: Partly finished course in other school, satisfies college weighted average. Subjects credited based on equivalence.\n• Cross-enrollee: Currently enrolled in another campus/school permitted to enroll to earn credit units.\n• Foreign Student: Non-Filipino citizen enrolled in any degree program.\n• Returnee: Previously enrolled, discontinued with valid leave of absence and not disqualified.\n\n2. Based on Curriculum Level:\n• Freshman: Earned 25% or less of total course units.\n• Sophomore: Earned 25% to 50% of total units.\n• Junior: Earned 50% to 75% of total units.\n• Senior: Earned 75% or more of total units.\n\n3. Based on Placement:\n• Full time / Regular: Carries full semester/term load prescribed in curriculum.\n• Irregular: Carries less than full load prescribed in curriculum.",
+      "keywords": ["classification", "freshman", "sophomore", "junior", "senior", "transferee", "cross enrollee", "returnee", "regular", "irregular", "units"]
+    },
+    {
+      "id": "ch3_art2_admission",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 2: Admission Requirements",
+      "section": "Sec. 1-2 & 2.6: Admission GWA & Entrance Standards",
+      "category": "Academics",
+      "title": "Undergraduate Admission & General Weighted Average (GWA) Requirements",
+      "content": "• Free Higher Education (UniFAST RA 10687): Exemption from tuition and other school fees for eligible undergraduate students.\n• Non-discriminatory Admission: Equal opportunity for all regardless of age, sex, gender, nationality, belief, political affiliation, PWDs, indigenous peoples, solo parents.\n• Priority Course GWA Requirements (Form 138):\n  - GWA 85 and above: Accountancy, Engineering, Nursing, Information Technology, Psychology, Biology, Mathematics, Criminology, Agriculture, Teacher Education, and other Board Programs.\n  - GWA 82 and above: Hotel and Restaurant Management, Tourism, Industrial Technology.\n• Board Examination Subject Rule: Students entering board programs must not have a grade below 85 in English, Science, and Mathematics.",
+      "keywords": ["admission", "gwa", "unifast", "entrance exam", "85", "82", "board programs", "engineering", "it", "nursing", "education", "accountancy", "form 138"]
+    },
+    {
+      "id": "ch3_art2_shifting_transfer",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 2: Admission Requirements",
+      "section": "Sec. 2.9 - 2.10: Transferring and Shifting Course",
+      "category": "Academics",
+      "title": "Rules on Transferring and Course Shifting",
+      "content": "• Shifting of Course (Within LSPU):\n  1. No failure of greater than six (6) units during the semester.\n  2. No failure in major-related subjects stated in the retention policy of the target BS curriculum.\n  3. Must accomplish official Shifting Form from the Office of the Registrar.\n• Transferring to another College:\n  - Must submit recommendation letter from previous Dean to Registrar before 12% of class meetings.\n  - Must complete in LSPU no less than 60% of total program units (75% if running for honors).",
+      "keywords": ["shifting", "shift", "transfer", "transferring", "change course", "palit kurso", "bagsak", "units"]
+    },
+    {
+      "id": "ch3_art3_registration_refund",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 3: Registration",
+      "section": "Sec. 1-3: Late Registration & Fee Refund Schedule",
+      "category": "Academics",
+      "title": "Registration, Late Registration Fine & Fee Refund Schedule",
+      "content": "• Late Registration: Allowed up to one (1) week after regular registration period. Late fine is ₱500.00 (BOR Reso. 1046 s.2012).\n• Deferment of Enrolment: Qualified freshmen may petition deferment to succeeding semester by writing to University Registrar, provided no subjects taken elsewhere.\n• Tuition Fee Refund Schedule (upon approved LOA / Honorable Dismissal):\n  - 75% refund: Within the 1st week from opening of classes.\n  - 50% refund: Within the 2nd to 4th week from opening of classes.\n  - No refund (0%): After the 4th week from opening of classes.\n• Registration, library, and miscellaneous fees are non-refundable after registration.",
+      "keywords": ["registration", "late registration", "500", "refund", "refund schedule", "tuition refund", "deferment", "loa", "drop refund"]
+    },
+    {
+      "id": "ch3_art5_retention",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 5: Retention Policies",
+      "section": "Sec. 3: Retention Grades & Retake Rules",
+      "category": "Academics",
+      "title": "LSPU Retention Policy & Minimum Grades",
+      "content": "• Minimum GPA: Overall minimum GPA for every semester or summer of study is 2.00.\n• Board Programs Minimum Final Grade:\n  - Major-related subjects: 2.00\n  - Professional subjects: 2.00\n  - General Education subjects: 1.75 - 1.00\n• Non-Board Programs Minimum Final Grade:\n  - Major-required subjects: 2.25\n  - Professional-related subjects: 2.25\n  - General Education subjects: 2.00 - 1.00\n• Retake Rules:\n  - Board/major subject grade below 2.25: Student may retake the subject ONCE. Maximum of two (2) major subjects allowed to be retaken between 3rd and 4th year.\n  - Failing grade of 5.00 in ANY General Education / Elective subject: Student is disqualified from the chosen curriculum and advised to shift.",
+      "keywords": ["retention", "minimum gpa", "board program", "retake", "retake subject", "ge subject", "shift", "disqualified"]
+    },
+    {
+      "id": "ch3_art5_delinquency",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 5: Retention Policies",
+      "section": "Sec. 4: Scholastic Delinquency Matrix",
+      "category": "Academics",
+      "title": "Scholastic Delinquency: Warning, Probation, Dismissal & Disqualification",
+      "content": "• Warning: Student fails 25% to 49% of enrolled academic units.\n  - Sanction: Dean issues warning to improve performance; load reduced by 3 units next semester.\n• Probation: Student fails 50% to 74% of enrolled academic units (6 units or more).\n  - Sanction: Placed on probation; allowable load limited to 15 units only next semester. Probation lifted upon passing all subjects.\n• Dismissal: Student fails 75% or more of academic units (9 units or more).\n  - Sanction: Dismissed from the College; not allowed to re-enroll in the program.\n• Permanent Disqualification: 100% failure rate.\n  - Sanction: Permanently barred from enrollment in Laguna State Polytechnic University.",
+      "keywords": ["delinquency", "warning", "probation", "dismissal", "permanent disqualification", "bagsak", "failure", "scholastic", "15 units"]
+    },
+    {
+      "id": "ch3_art6_load_dropping",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 6: Academic Load and Changes",
+      "section": "Sec. 1, 3, 4: Overload, Change of Registration & Dropping",
+      "category": "Academics",
+      "title": "Academic Overload, Adding/Dropping & Dropping Fees",
+      "content": "• Credit Unit: 1 unit credit = at least 18 full hours of lecture/seminar.\n• Overload: Only graduating students with better-than-average standing may apply with the VPAA for an overload of not more than 6 units (or 2 subjects).\n• Change of Registration: Taking new subjects is not allowed after 12% of regular class meetings.\n• Dropping of Course:\n  - Accumulated absence of at least 25% class hours = automatically dropped.\n  - Dropping before midterm: Dropped without prejudice (DRP).\n  - Dropping after 1st day of midterm exams: Instructor evaluates class standing; if standing is below 3.0, grade of 5.0 is given.\n  - Dropping without Dean's approval = automatic grade of 5.0.\n  - Dropping Fee: ₱20.00 per unit (BOR Reso. 1046, s.2012).",
+      "keywords": ["overload", "dropping", "drop subject", "midterm", "drp", "dropping fee", "20 per unit", "absences", "change of registration"]
+    },
+    {
+      "id": "ch3_art7_grading_system",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 7: Grading System and Other Grade-related Concerns",
+      "section": "Sec. 1: Official Numerical Grading Scale",
+      "category": "Academics",
+      "title": "LSPU Official Grading Scale & Numerical Equivalents",
+      "content": "• 1.00 (99–100%) - Excellent\n• 1.25 (96–98%) - Outstanding\n• 1.50 (93–95%) - Very Satisfactory\n• 1.75 (90–92%) - Good\n• 2.00 (87–89%) - Satisfactory\n• 2.25 (84–86%)\n• 2.50 (81–83%) - Fairly Satisfactory\n• 2.75 (78–80%)\n• 3.00 (75–77%) - Passing (Lowest passing mark)\n• 4.00 (70–74%) - Conditional Failure\n• 5.00 (69% and below) - Failed\n• INC - Incomplete (missed final exam or major requirement)\n• DRP - Officially Dropped",
+      "keywords": ["grades", "grading system", "scale", "tres", "singko", "inc", "drp", "conditional", "passing grade", "1.00", "3.00", "5.00", "4.00"]
+    },
+    {
+      "id": "ch3_art7_grade_policies",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 7: Grading System and Other Grade-related Concerns",
+      "section": "Sec. 2-5: Rectification, Removal of 4.00 & INC Expiration",
+      "category": "Academics",
+      "title": "Grade Rectification, Removal of 4.00 & INC Automatic 5.0 Rule",
+      "content": "• Grade Submission Deadline: Instructors must submit grades within ten (10) working days after the last examination day.\n• Grade Rectification: Students may request in writing for rectification of grade errors within ten (10) days after official release of grades by the Registrar.\n• Policy on 4.00 (Conditional Failure):\n  - Removed by repeating subject or taking removal exam within one (1) academic year.\n  - Highest grade obtainable upon re-examination is 3.00. If failed or unaccomplished within 1 year, automatically becomes 5.00.\n  - Removal fee: ₱20.00 per unit (BOR Reso. 1046, s.2012).\n• Policy on INC (Incomplete Mark):\n  - Given if class standing is passing but final exam was missed due to illness/valid reason (with approved excuse slip) or unsubmitted requirement.\n  - Must be completed within one (1) academic year, otherwise automatically converted by Registrar into a 5.00 (Failed).\n  - Completion fee: ₱20.00 per unit (Special removal: ₱100.00).",
+      "keywords": ["inc", "incomplete", "4.00", "conditional", "removal exam", "rectification", "automatic 5.0", "one year", "completion fee"]
+    },
+    {
+      "id": "ch3_art8_attendance",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 8: Attendance",
+      "section": "Sec. 1-2: Attendance, Tardiness & Excuse Slips",
+      "category": "Campus Life",
+      "title": "Attendance Policy, Tardiness & Guidance Excuse Slips",
+      "content": "• Unavoidable Absences: Student must secure an official Excuse Slip from the Guidance Office / OSAS.\n• Excuse Slip Deadline: Must present excuse slip with medical certificate to instructor not later than the second (2nd) class session following return to school.\n• Tardiness: Three (3) instances of tardiness in a class equals one (1) absence.\n• Dropping Rule: Accumulating unexcused absences equivalent to 20% to 25% of class hours in a semester results in being dropped from the roll of students.",
+      "keywords": ["attendance", "absent", "absences", "excuse slip", "guidance office", "tardiness", "late", "drop", "25 percent"]
+    },
+    {
+      "id": "ch3_art11_mrr",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 11: Maximum Residence Rule (MRR)",
+      "section": "Article 11",
+      "category": "Academics",
+      "title": "Maximum Residence Rule (MRR)",
+      "content": "• Rule: A student must finish all course requirements within an actual residence period equivalent to 1.5 times the normal length prescribed for the course.\n• 4-year degree: Maximum of 6 years residency.\n• 5-year degree: Maximum of 7.5 years residency.\n• Exceeding MRR: The student shall not be allowed to register in the university.",
+      "keywords": ["mrr", "maximum residence rule", "residency", "ilang taon", "years", "time limit", "retention"]
+    },
+    {
+      "id": "ch3_art14_graduation",
+      "chapter": "Chapter 3: Undergraduate Academic Policies",
+      "article": "Article 14: Graduation Requirements",
+      "section": "Sec. 1-6: Mandatory Tree Planting, Residency & Commencement",
+      "category": "Academics",
+      "title": "Graduation Requirements & Mandatory Tree Planting",
+      "content": "1. Academic Completion: Passed all academic curriculum requirements.\n2. Mandatory Tree Planting: Must have individually planted a minimum of ten (10) seedlings per year in areas designated by their college (National Greening Program EO No. 26). Note: Deferred during pandemic.\n3. University Clearance: Full settlement of property and financial accountabilities.\n4. Residency Requirement: Completed at least 50% of total academic units and enrolled for at least two (2) years in LSPU, one of which must be the senior year.\n5. Commencement Exercises: Mandatory attendance. Graduacion in absencia permitted only with approval from University President on grounds of serious illness.",
+      "keywords": ["graduation", "graduating", "tree planting", "seedlings", "clearance", "residency", "commencement", "graduacion in absencia"]
+    },
+    {
+      "id": "ch6_art2_cheating_discipline",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 3: Minor Offense",
+      "section": "Sec. 2: Dishonesty & Cheating in Examinations",
+      "category": "Discipline",
+      "title": "Sanctions for Cheating in Examinations & Academic Dishonesty",
+      "content": "• Cheating in Examinations:\n  - 1st Offense: Automatically failed in the examination.\n  - 2nd Offense: Academic probation and automatic final grade of 5.0 in the subject.\n  - 3rd Offense: Dismissal from Laguna State Polytechnic University.\n• Other Acts of Academic Dishonesty:\n  - 1st Offense: Reprimand with community service.\n  - 2nd Offense: Promissory note signed by Guidance Counselor/Discipline Coordinator + 2 days community service.\n  - 3rd Offense: Suspension for two (2) weeks.",
+      "keywords": ["cheating", "cheat", "exam cheat", "kodigo", "dishonesty", "sanctions", "parusa", "probation", "dismissal", "5.0"]
+    },
+    {
+      "id": "ch6_art2_major_offenses",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 2: Major Offenses",
+      "section": "Sec. 1, 4, 6, 10, 11, 12, 15: Major Violations & Penalties",
+      "category": "Discipline",
+      "title": "Major Student Offenses & Progressive Penalties",
+      "content": "• Deadly Weapons (Blade >2.5 inches, firearms, explosives):\n  - 1st: 1 semester suspension | 2nd: 1 year suspension | 3rd: Expulsion.\n• Physical Assault / Fist Fighting:\n  - 1st: 1 week suspension + 40 hrs service + damages | 2nd: 1 semester suspension | 3rd: Expulsion.\n• Bullying (RA 10627):\n  - Verbal/emotional: 1st: 1 wk + 40 hrs service | 2nd: 1 month | 3rd: 1 semester.\n  - Physical bullying/violence: 1st: 1 month | 2nd: 1 semester | 3rd: Expulsion.\n• Cybercrime (RA 10175):\n  - Cyberbullying/Hacking: 1st: 1 month | 2nd: 1 semester | 3rd: Expulsion.\n  - Cybersex, Child Pornography, Cyber Libel: Immediate Expulsion on 1st offense.\n• Drinking Alcohol / Drunkenness:\n  - Drinking: 1st: 1 wk + 40 hrs | 2nd: 1 semester | 3rd: Expulsion.\n  - Drunkenness with injury/damage: 1st: 1 month + damages | 2nd: 1 semester | 3rd: Expulsion.\n• Narcotics / Prohibited Drugs (RA 9165):\n  - 1st Offense: 1 semester suspension or dismissal; mandatory rehabilitation.\n• Stealing / Theft: 1st: 1 semester suspension + damages | 2nd: Expulsion + damages.\n• Vandalism / Property Destruction: 1st: 1 month + damages | 2nd: 1 semester + damages | 3rd: Expulsion.",
+      "keywords": ["major offenses", "weapons", "assault", "bullying", "drugs", "alcohol", "theft", "stealing", "vandalism", "expulsion", "suspension", "cybercrime", "sanctions"]
+    },
+    {
+      "id": "ch6_art3_minor_offenses",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 3: Minor Offenses",
+      "section": "Sec. 1, 3, 4, 6, 7, 9: Daily Misconduct & Penalties",
+      "category": "Discipline",
+      "title": "Minor Student Offenses: ID, Smoking, Littering & Trespassing",
+      "content": "• Non-wearing of ID & School Uniform:\n  - 1st Action: Denied entry at university gates or in class unless presenting OSAS Excuse Slip from Guidance Counselor.\n  - 2nd Action: Submit filled-out Promissory Note Form.\n  - Subsequent: 1 week suspension + 40 hours community service.\n• Smoking on Campus: Strictly prohibited.\n  - 1st: Reprimand + community service | 2nd: Promissory note + 2 days service | 3rd: 2 weeks suspension.\n• Littering: 1st: Required to clean area | 2nd: 1 week suspension + 40 hrs service | 3rd: 2 weeks suspension.\n• Trespassing (staying after hours or off-days without permit):\n  - 1st: Reprimand + promissory note | 2nd: Parents informed + 1 wk suspension + 40 hrs | 3rd: 1 month suspension.\n• Overspeeding Motorized Vehicles (>20 kph) on Campus:\n  - 1st: Reprimand | 2nd: 1 wk suspension + 40 hrs | 3rd: 1 semester suspension.\n• Fence Jumping / Unauthorized Climbing: 1st: Reprimand + service | 2nd: 1 wk + 40 hrs | 3rd: 1 semester suspension.",
+      "keywords": ["minor offenses", "no id", "uniform violation", "smoking", "yosi", "littering", "basura", "trespassing", "overspeeding", "gate", "sanctions"]
+    },
+    {
+      "id": "ch6_art4_uniform_dresscode",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 4: Norms and Decorum",
+      "section": "Sec. 1: School Uniforms & Prohibited Attire",
+      "category": "Campus Life",
+      "title": "Uniform Schedule, Wash Days & Prohibited Attire",
+      "content": "• Prescribed Uniform Days: Monday, Tuesday, Thursday, and Friday.\n• Wash / Civilian Days:\n  - Wednesday: University T-shirt with blue jeans/maong trousers.\n  - Friday: Department Shirt with blue jeans/maong trousers.\n• Strict Prohibited Attire (Strictly banned at all campus gates):\n  ❌ Shorts / short pants, walking shorts, cycling shorts\n  ❌ \"Puruntong\" style or Cargo shorts\n  ❌ Pedal pusher pants, Capri pants\n  ❌ Mutilated / ripped / jazzed pants\n  ❌ Faded, torn, wrinkled shirts\n  ❌ Jogging pants / jogger pants\n  ❌ Miniskirts\n  ❌ Sleeveless, backless, one-sleeve, spaghetti straps, sandos\n  ❌ Plunging necklines / halter tops\n  ❌ Leggings\n  ❌ Slippers / flip-flops\n• Female Pants Rule: Must be slacks or loosely cut trousers, not denim/maong and not very tight fitting.\n• P.E. Uniform Rule: Must be worn ONLY during P.E. classes; barred from academic classrooms.",
+      "keywords": ["uniform", "dress code", "wash day", "wednesday", "friday", "bawal", "prohibited", "shorts", "sandos", "slippers", "tsinelas", "ripped jeans", "pe uniform", "civilian"]
+    },
+    {
+      "id": "ch6_art4_haircut_grooming",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 4: Norms and Decorum",
+      "section": "Sec. 2-5: Haircut, Earrings, Caps & Tattoos",
+      "category": "Campus Life",
+      "title": "Haircut Guidelines, Earrings, Caps & Tattoo Policies",
+      "content": "• Male Haircut Standards:\n  - Freshmen & Senior High School: 2x3 haircut.\n  - 2nd to 4th Year College Students: Clean-cut or 1x2 barbers / decent cut.\n  - Prohibited: Funky short or fixie crop (shaven sides with long top fastened with ties or stiffened with gel).\n  - SOP Hair Inspection: Conducted every first (1st) Monday of the month by Security Guards and OSAS.\n• Hair Color: Out-of-the-ordinary dyed/tinted hair is prohibited. Minimal aesthetic coloring requires OSAS and Campus Director approval.\n• Earrings:\n  - Female: Dangling, dropped, nose, eyebrow, tongue, and lip earrings prohibited.\n  - Male: Wearing of ANY kind of earrings is strictly prohibited.\n• Caps & Headgear: Prohibited inside classrooms, offices, and halls.\n• Tattoos: Permanent tattoos on exposed body parts are strictly prohibited.",
+      "keywords": ["haircut", "gupit", "2x3", "1x2", "barbers", "bawas buhok", "hair color", "kulay buhok", "earrings", "hikaw", "caps", "sombrero", "tattoo", "tattoos"]
+    },
+    {
+      "id": "ch6_art4_lgbtq_policy",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 4: Norms and Decorum",
+      "section": "Sec. 6: Clothing and Gender Representation",
+      "category": "Campus Life",
+      "title": "LGBTQ+ Gender Representation & Uniform Accommodations",
+      "content": "• Policy (Gender and Development Unit):\n  - Transgender students have the right to dress in accordance with their gender identity and expression.\n• Clothing Specifications:\n  - Transwomen: Allowed male uniform pants and polo, but with female cut blouses of the same color as the male uniform.\n  - Transmen: Allowed to wear pants and polo with the same color as the female uniform.\n• Grooming Accommodations:\n  - Transgender girls are NOT required to have a male haircut, provided their hair is clipped properly (men's tail or fold-over style).\n  - Transgender boys are NOT required to maintain a female hairstyle or wear feminine clothing/make-up.",
+      "keywords": ["lgbt", "lgbtq", "transgender", "gender identity", "gender expression", "transwoman", "transman", "uniform accommodation", "haircut exemption"]
+    },
+    {
+      "id": "ch6_art5_suspensions",
+      "chapter": "Chapter 6: Code of Conduct for LSPU Students",
+      "article": "Article 5: Additional Guidelines",
+      "section": "Sec. 2: Class Suspensions & Typhoon Signals",
+      "category": "Campus Life",
+      "title": "Official Class Suspension Protocol & Typhoon Signals",
+      "content": "• Final Authority: The University President has final authority to suspend classes university-wide or per campus.\n• Typhoon Signals (PAGASA):\n  - Signal No. 1: Pre-school to Senior High suspended. College subject to university/LGU advisory.\n  - Signal No. 2: Automatic suspension of High School classes.\n  - Signal No. 3: Automatic suspension of College/Tertiary and Graduate classes.\n• LGU Mandate: Local chief executives (City Mayor of San Pablo, Provincial Governor of Laguna) may declare suspensions for their locality (CMO 34 s.2010).\n• Fortuitous Events: Fires, earthquakes, epidemics, and bomb threats prompt emergency suspension.",
+      "keywords": ["suspension", "may pasok ba", "walang pasok", "typhoon", "signal 1", "signal 2", "signal 3", "bagyo", "pagasa", "mayor", "governor", "president"]
+    },
+    {
+      "id": "app_b_latin_honors",
+      "chapter": "Appendices",
+      "article": "Appendix B: Guidelines on the Selection of Honors and Awards",
+      "section": "Article 1: Academic Awards",
+      "category": "Awards & Honors",
+      "title": "Latin Honors Criteria & Academic Awards",
+      "content": "• Final Grade Scale for Latin Honors:\n  - Summa Cum Laude: 1.00 to 1.20\n  - Magna Cum Laude: 1.21 to 1.45\n  - Cum Laude: 1.46 to 1.75\n• Mandatory Eligibility Conditions:\n  1. Grade Ceiling: Must NOT have received a grade lower than 2.0 in ANY enrolled subject (including PE, NSTP/CWTS, and Euthenics).\n  2. Academic Load: Must have carried a normal academic load each semester (not less than 15 units).\n  3. Residency: Must have completed at least 75% of total units in LSPU and been in residence for at least two (2) years immediately prior to graduation.\n  4. Clean Record: Must have NO Incomplete (INC) or officially dropped (DRP) subjects.\n  5. Good Moral: Must have a clean disciplinary standing with no derogatory record.",
+      "keywords": ["latin honors", "cum laude", "magna cum laude", "summa cum laude", "honors", "awards", "gwa", "deans list", "lowest grade", "requirements"]
+    },
+    {
+      "id": "app_c_drug_testing",
+      "chapter": "Appendices",
+      "article": "Appendix C: Guidelines for Mandatory Drug Testing Program (MDTP)",
+      "section": "Sec. 1-8: Procedures, Privacy & Sanctions",
+      "category": "Student Services",
+      "title": "Mandatory Drug Testing Program (MDTP) & Student Rights",
+      "content": "• Basis: RA 9165 and CHED CMO No. 64 s.2017 / LSPU BOR Reso. 1362 s.2017.\n• Scope: Part of admission and retention policy; annual random/routine drug test.\n• Absolute Confidentiality: Results are strictly confidential. Under NO circumstances shall results be published or used to incriminate students for criminal liability.\n• Procedure for Positive Confirmatory Test:\n  1. Transmitted directly to Drug Testing Coordinator (Campus Director).\n  2. Parents/guardians invited for a private confidential conference.\n  3. Student undergoes 40 hours of counseling with Guidance Counselor.\n  4. Repeat drug tests for six (6) consecutive weeks at accredited DOH facility.\n  5. Positive confirmatory result is NOT a ground for disciplinary action or academic penalty on first instance.",
+      "keywords": ["drug test", "drug testing", "mdtp", "ra 9165", "confidentiality", "counseling", "rehabilitation", "random drug test"]
+    },
+    {
+      "id": "app_d_internship_ojt",
+      "chapter": "Appendices",
+      "article": "Appendix D: LSPU Internship Program (SIPP)",
+      "section": "Article 1-5: OJT Requirements, Work Hours & Fees",
+      "category": "Internship & Career",
+      "title": "Student Internship Program in the Philippines (SIPP / OJT)",
+      "content": "• Basis: RA 7722 and CHED CMO No. 104 s.2017.\n• Duration: Maximum of five (5) months in accordance with approved curriculum.\n• Eligibility Qualifications:\n  - Officially enrolled in internship subject.\n  - At least 18 years of age from start of internship.\n  - Passed all major/professional subjects prior to deployment.\n  - Maximum concurrent load: Allowed to enroll in other subjects up to a maximum of six (6) units only during OJT.\n  - Medical Certificate confirming physical and psychological fitness from DOH-accredited clinic.\n  - Notarized written parent/guardian consent (waivers not allowed).\n• Status: Student intern is classified as an intern and NOT an employee of the Host Training Establishment (HTE).",
+      "keywords": ["internship", "ojt", "sipp", "practicum", "host training", "requirements", "parent consent", "medical certificate", "units"]
+    },
+    {
+      "id": "app_f_mental_health",
+      "chapter": "Appendices",
+      "article": "Appendix F: Mental Health Services Policy",
+      "section": "Article 1-9: Psychological First Aid & Risk Management",
+      "category": "Student Services",
+      "title": "Mental Health Services, Psychological First Aid (PFA) & Counseling",
+      "content": "• Basis: Republic Act No. 11036 (Philippine Mental Health Act).\n• Offerings: Psychological evaluations, mental health counseling, peer facilitators program, crisis intervention, and free psychiatric/psychological consultation funded by the university.\n• University Psychological First Aid (PFA): Immediate emotional stabilization, re-establishing social support, and referral to trained clinicians.\n• University Health Risk Management Team (UHRMT): Multidisciplinary team (Guidance Counselor, Physician/Nurse, Campus Director, Security) assessing crises, suicide prevention, and safe re-entry procedures.",
+      "keywords": ["mental health", "counseling", "depression", "anxiety", "psychological", "pfa", "suicide prevention", "guidance counselor", "clinic"]
+    }
+  ]
+}

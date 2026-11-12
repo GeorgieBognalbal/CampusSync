@@ -282,7 +282,8 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 .append("- Small talk and general questions (greetings, time, study tips, general ")
                 .append("knowledge) can be answered normally.\n")
                 .append("- Don't say which AI model or company powers you. You are Kaleo.\n")
-                .append("- source_ids: the numbers of the announcements you actually used, or an empty list.\n\n");
+                .append("- source_ids: the numbers of the announcements you actually used, or an empty list. ")
+                .append("Never write these numbers or brackets like [1] in the answer; name the page and date instead.\n\n");
 
         if (posts.isEmpty()) {
             sb.append("There are no announcements saved on the app yet.\n");

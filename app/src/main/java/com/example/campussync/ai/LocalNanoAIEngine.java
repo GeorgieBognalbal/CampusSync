@@ -93,7 +93,7 @@ public class LocalNanoAIEngine {
     );
 
     private static final List<String> EVENTS_KEYWORDS = Arrays.asList(
-            "event", "events", "intrams", "intramurals", "octa", "coesc",
+            "event", "events", "intrams", "intramurals", "octa", "coesc", "techad", "tech ad",
             "orientation", "webinar", "activity", "activities", "general assembly", "assembly",
             "hackathon", "hack4success", "symposium", "workshop", "foundation day",
             "acquaintance", "party", "cheering", "sports", "seminar", "contest"
@@ -138,7 +138,8 @@ public class LocalNanoAIEngine {
             "iskolar ng bayan", "padayon", "tatak lspu", "iskolar",
             // Colleges & Units
             "ccs", "cte", "cbma", "coe", "cit", "cas", "ccje", "cba", "chmt",
-            "coesc", "octa", "ssc", "student council", "council",
+            "coesc", "octa", "ssc", "student council", "council", "techad", "tech ad",
+            "the technology advocate", "technology advocate",
             // Programs & Majors
             "bsit", "bscs", "bsed", "beed", "bsba", "bsa", "bsce", "bsme", "bsee", "bscpe",
             "bit", "bacomm", "bsmath", "bscrim", "btled", "beced", "course", "courses",
@@ -365,7 +366,8 @@ public class LocalNanoAIEngine {
                 normalizedQuery.contains("deans list") || normalizedQuery.contains("dean's list") ||
                 normalizedQuery.contains("honor") || normalizedQuery.contains("cum laude") ||
                 normalizedQuery.contains("magna") || normalizedQuery.contains("summa") ||
-                normalizedQuery.contains("tor") || normalizedQuery.contains("cor") ||
+                matchesWord(normalizedQuery, "tor") || matchesWord(normalizedQuery, "cor") ||
+                matchesWord(normalizedQuery, "inc") || normalizedQuery.contains("incomplete") ||
                 normalizedQuery.contains("unifast") || normalizedQuery.contains("good moral") ||
                 normalizedQuery.contains("saan") || normalizedQuery.contains("where") ||
                 normalizedQuery.contains("hours") || normalizedQuery.contains("oras") ||
@@ -613,10 +615,10 @@ public class LocalNanoAIEngine {
         if (q.contains("midterm") || q.contains("exam") || q.contains("finals") ||
                 q.contains("permit") || q.contains("grade") || q.contains("grading") ||
                 q.contains("passing") || q.contains("pass") || q.contains("fail") || q.contains("singko") || q.contains("tres") ||
-                q.contains("inc") || q.contains("incomplete") || q.contains("deans list") ||
+                matchesWord(q, "inc") || q.contains("incomplete") || q.contains("deans list") ||
                 q.contains("dean's list") || q.contains("latin honor") || q.contains("cum laude") ||
-                q.contains("magna") || q.contains("summa") || q.contains("cor") ||
-                q.contains("tor") || q.contains("transcript") || q.contains("clearance") ||
+                q.contains("magna") || q.contains("summa") || matchesWord(q, "cor") ||
+                matchesWord(q, "tor") || q.contains("transcript") || q.contains("clearance") ||
                 q.contains("shifting") || q.contains("shift") || q.contains("dropping") || q.contains("drop") ||
                 q.contains("mrr") || q.contains("residency") || q.contains("overload") ||
                 q.contains("tree planting") || q.contains("seedlings") || q.contains("refund") ||
@@ -721,10 +723,14 @@ public class LocalNanoAIEngine {
             else if (intent == Intent.SCHOLARSHIP && post.categories.contains("Scholarship")) categoryScore = 1.0f;
             else if (intent == Intent.ACADEMICS && (post.categories.contains("Exams") || post.categories.contains("Enrollment"))) categoryScore = 1.0f;
             else if (intent == Intent.EVENTS && post.categories.contains("Events")) categoryScore = 1.0f;
+            else if (intent == Intent.UNKNOWN) categoryScore = 0.5f;
         } else {
             if (intent == Intent.SUSPENSION && containsSuspensionMarkers(content)) categoryScore = 0.8f;
             else if (intent == Intent.SCHOLARSHIP && (content.contains("scholarship") || content.contains("tdp") || content.contains("allowance"))) categoryScore = 0.8f;
             else if (intent == Intent.ACADEMICS && (content.contains("exam") || content.contains("midterm") || content.contains("schedule"))) categoryScore = 0.8f;
+            else if (intent == Intent.EVENTS && (content.contains("event") || content.contains("contest") || content.contains("challenge") || content.contains("seminar") || content.contains("competition") || content.contains("hackathon") || content.contains("octa") || content.contains("techad"))) categoryScore = 0.8f;
+            else if (intent == Intent.CAMPUS_INFO && (content.contains("office") || content.contains("services") || content.contains("guidance") || content.contains("library") || content.contains("clinic") || content.contains("publication") || content.contains("paper"))) categoryScore = 0.8f;
+            else if (intent == Intent.UNKNOWN) categoryScore = 0.5f;
         }
 
         // 3. Recency (0.15)

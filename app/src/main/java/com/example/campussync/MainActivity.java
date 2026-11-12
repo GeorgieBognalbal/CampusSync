@@ -670,7 +670,10 @@ public class MainActivity extends Activity {
         Set<String> unfollowed = prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>());
         List<AnnouncementEntity> out = new ArrayList<>();
         for (AnnouncementEntity a : input) {
-            if (!unfollowed.contains(a.pageName)) out.add(a);
+            boolean isUnfollowed = unfollowed.contains(a.pageName) ||
+                    ("OCTA".equals(a.pageName) && unfollowed.contains("CCSOCTA")) ||
+                    ("CCSOCTA".equals(a.pageName) && unfollowed.contains("OCTA"));
+            if (!isUnfollowed) out.add(a);
         }
         return out;
     }
@@ -1457,10 +1460,12 @@ public class MainActivity extends Activity {
     private static final String[][] SOURCES = {
             {"L", "LSPU Official", "University-wide announcements", "https://www.facebook.com/LSPUOfficial"},
             {"O", "SPCC OSAS", "Student affairs and services", "https://www.facebook.com/SPCC.OSAS"},
-            {"C", "CCSOCTA", "College and organization updates", "https://www.facebook.com/CCSOCTA"}
+            {"G", "Guidance Office", "Guidance & counseling services", "https://www.facebook.com/lspuspcc.guidance/"},
+            {"C", "CCSOCTA", "College and organization updates", "https://www.facebook.com/CCSOCTA"},
+            {"T", "TechAd", "Official campus student publication", "https://www.facebook.com/techadspc"}
     };
     private static final int[] SOURCE_TINTS = {
-            R.color.soft_blue, R.color.soft_green, R.color.soft_orange
+            R.color.soft_blue, R.color.soft_green, R.color.soft_orange, R.color.soft_blue, R.color.soft_green
     };
 
     /** Collapsible panel under the chat header listing the pages the assistant reads. */
@@ -1481,7 +1486,7 @@ public class MainActivity extends Activity {
 
         for (int i = 0; i < SOURCES.length; i++) {
             addSourceCard(panel, SOURCES[i][0], SOURCES[i][1], SOURCES[i][2],
-                    SOURCES[i][3], getColor(SOURCE_TINTS[i]), countText);
+                    SOURCES[i][3], getColor(SOURCE_TINTS[i % SOURCE_TINTS.length]), countText);
         }
 
         // LSPU Student Handbook 2021 Official Grounding Source
@@ -1529,7 +1534,9 @@ public class MainActivity extends Activity {
 
     private int countUnfollowed(Set<String> unfollowed) {
         int n = 0;
-        for (String[] s : SOURCES) if (unfollowed.contains(s[1])) n++;
+        for (String[] s : SOURCES) {
+            if (unfollowed.contains(s[1]) || ("CCSOCTA".equals(s[1]) && unfollowed.contains("OCTA")) || ("OCTA".equals(s[1]) && unfollowed.contains("CCSOCTA"))) n++;
+        }
         return n;
     }
 
@@ -1580,12 +1587,23 @@ public class MainActivity extends Activity {
         // Follow toggle
         Switch follow = new Switch(this);
         Set<String> unfollowed = prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>());
-        follow.setChecked(!unfollowed.contains(name));
+        boolean isUnfollowed = unfollowed.contains(name) ||
+                ("CCSOCTA".equals(name) && unfollowed.contains("OCTA")) ||
+                ("OCTA".equals(name) && unfollowed.contains("CCSOCTA"));
+        follow.setChecked(!isUnfollowed);
         follow.setContentDescription("Follow " + name);
         follow.setOnCheckedChangeListener((b, checked) -> {
             Set<String> set = new HashSet<>(
                     prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>()));
-            if (checked) set.remove(name); else set.add(name);
+            if (checked) {
+                set.remove(name);
+                if ("CCSOCTA".equals(name)) set.remove("OCTA");
+                if ("OCTA".equals(name)) set.remove("CCSOCTA");
+            } else {
+                set.add(name);
+                if ("CCSOCTA".equals(name)) set.add("OCTA");
+                if ("OCTA".equals(name)) set.add("CCSOCTA");
+            }
             prefs.edit().putStringSet(KEY_UNFOLLOWED, set).apply();
             countText.setText(followingText(SOURCES.length - countUnfollowed(set)));
             source.animate().alpha(checked ? 1f : 0.6f).setDuration(150);

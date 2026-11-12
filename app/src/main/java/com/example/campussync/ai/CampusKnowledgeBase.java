@@ -876,6 +876,34 @@ public class CampusKnowledgeBase {
                 "Campus Life"
         ));
 
+        ENTRIES.add(new KnowledgeEntry(
+                "CCSOCTA (College of Computer Studies - Organization of Computer Technology Advocates)",
+                "🏢 **CCSOCTA (College of Computer Studies - Organization of Computer Technology Advocates)**\n\n" +
+                "• **Overview**: The official student organization of the College of Computer Studies (CCS) at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
+                "• **Scope**: Represents BS Information Technology (BSIT) and computer studies students, organizing tech events, coding competitions (e.g. CodeChum National Programming Challenge, Tech Week), general assemblies, and peer academic support.\n" +
+                "• **Official Facebook**: https://www.facebook.com/CCSOCTA\n" +
+                "• **Email**: octa_spc@lspu.edu.ph",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("octa", "ccsocta", "ccs octa", "computer studies", "bsit org", "computer technology advocates"),
+                Arrays.asList("ano ang octa", "what is octa", "ano ang ccsocta", "what is ccsocta", "ccs student org", "octa lspu", "octa organization", "sino ang octa", "who is octa", "what is ccsocta org"),
+                "LSPU-SPCC Student Organizations Directory",
+                "Student Affairs"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "The Technology Advocate (TechAd) - Official Student Publication",
+                "📰 **The Technology Advocate (TechAd)**\n\n" +
+                "• **Overview**: The official student journalism organization and campus publication of Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
+                "• **Scope**: Reports university-wide and campus news, editorial opinions, student achievements, feature stories, and media coverage (e.g. Editorial Board Examinations, academic seminars, campus events).\n" +
+                "• **Official Facebook**: https://www.facebook.com/techadspc\n" +
+                "• **Press Recognition**: Regularly competes and clinches awards in regional and university press conferences.",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("techad", "tech ad", "the technology advocate", "technology advocate", "student publication", "school paper", "campus paper", "journalism"),
+                Arrays.asList("ano ang techad", "what is techad", "ano ang tech ad", "what is tech ad", "official student publication", "school publication", "the technology advocate", "techad lspu", "sino ang techad", "who is techad", "what is the technology advocate"),
+                "LSPU-SPCC Campus Publications",
+                "Student Affairs"
+        ));
+
     }
 
     /**

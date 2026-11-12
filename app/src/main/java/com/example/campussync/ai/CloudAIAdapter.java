@@ -101,8 +101,15 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
         List<AnnouncementEntity> contextPosts = pickContextPosts(userQuery, posts);
         String lowerQuery = userQuery.toLowerCase(Locale.ROOT).trim();
-        CampusKnowledgeBase.KnowledgeEntry handbook = CampusKnowledgeBase.findBestMatch(
+        CampusKnowledgeBase.KnowledgeEntry summary = CampusKnowledgeBase.findBestMatch(
                 lowerQuery, new LocalNanoAIEngine().detectIntent(lowerQuery));
+        List<String[]> handbook = new ArrayList<>();
+        if (summary != null) {
+            handbook.add(new String[]{safe(summary.citation), safe(summary.title), safe(summary.content)});
+        }
+        for (CampusKnowledgeBase.HandbookSection section : pickHandbookSections(lowerQuery, 2)) {
+            handbook.add(new String[]{section.citation, section.title, section.content});
+        }
         String apiKey = BuildConfig.GEMINI_API_KEY.trim();
 
         for (String modelName : CANDIDATE_MODELS) {
@@ -125,8 +132,12 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                     }
                 }
 
-                String citation = handbook != null && reply.optBoolean("used_handbook", false)
-                        ? handbook.citation : null;
+                String citation = null;
+                JSONArray handbookIds = reply.optJSONArray("handbook_ids");
+                if (handbookIds != null && handbookIds.length() > 0) {
+                    int index = handbookIds.optInt(0, 0) - 1;
+                    if (index >= 0 && index < handbook.size()) citation = handbook.get(index)[0];
+                }
                 return new LocalNanoAIEngine.NanoAIResult(
                         answer,
                         LocalNanoAIEngine.Intent.GENERAL,
@@ -174,6 +185,36 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         return picked;
     }
 
+    /** Full handbook sections that share the most words with the question (title words count double). */
+    private static List<CampusKnowledgeBase.HandbookSection> pickHandbookSections(String query, int max) {
+        Set<String> words = new HashSet<>();
+        for (String w : query.split("[^\\p{L}\\p{N}]+")) {
+            if (w.length() > 2) words.add(w);
+        }
+        List<CampusKnowledgeBase.HandbookSection> sections = CampusKnowledgeBase.getHandbookSections();
+        List<Integer> scores = new ArrayList<>();
+        for (CampusKnowledgeBase.HandbookSection section : sections) {
+            String title = section.title.toLowerCase(Locale.ROOT);
+            String content = section.content.toLowerCase(Locale.ROOT);
+            int score = 0;
+            for (String w : words) {
+                if (title.contains(w)) score += 2;
+                if (content.contains(w)) score += 1;
+            }
+            scores.add(score);
+        }
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < sections.size(); i++) order.add(i);
+        order.sort((a, b) -> Integer.compare(scores.get(b), scores.get(a)));
+
+        List<CampusKnowledgeBase.HandbookSection> picked = new ArrayList<>();
+        for (int i : order) {
+            if (picked.size() >= max || scores.get(i) < 2) break;
+            picked.add(sections.get(i));
+        }
+        return picked;
+    }
+
     private static int matchScore(AnnouncementEntity post, Set<String> words) {
         if (words.isEmpty()) return 0;
         String text = (safe(post.message) + " " + safe(post.keyTakeaway) + " "
@@ -188,7 +229,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
     private JSONObject callGemini(String modelName, String userQuery,
                                   List<AnnouncementEntity> posts,
                                   List<LocalNanoAIEngine.Turn> history,
-                                  CampusKnowledgeBase.KnowledgeEntry handbook,
+                                  List<String[]> handbook,
                                   String apiKey) throws Exception {
         URL url = new URL(GEMINI_BASE_URL + modelName + ":generateContent");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -227,8 +268,10 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                         .put("source_ids", new JSONObject()
                                 .put("type", "array")
                                 .put("items", new JSONObject().put("type", "integer")))
-                        .put("used_handbook", new JSONObject().put("type", "boolean")))
-                .put("required", new JSONArray().put("answer").put("source_ids").put("used_handbook"));
+                        .put("handbook_ids", new JSONObject()
+                                .put("type", "array")
+                                .put("items", new JSONObject().put("type", "integer"))))
+                .put("required", new JSONArray().put("answer").put("source_ids").put("handbook_ids"));
 
         root.put("generationConfig", new JSONObject()
                 .put("temperature", 0.3)
@@ -266,7 +309,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         return new JSONObject(text.toString());
     }
 
-    private String buildInstructions(List<AnnouncementEntity> posts, CampusKnowledgeBase.KnowledgeEntry handbook) {
+    private String buildInstructions(List<AnnouncementEntity> posts, List<String[]> handbook) {
         SimpleDateFormat today = new SimpleDateFormat("EEEE, MMMM d, yyyy h:mm a", Locale.US);
         today.setTimeZone(PH_TIME);
         SimpleDateFormat posted = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US);
@@ -281,7 +324,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 .append("- Be short and friendly, like a helpful upperclassman: 1 to 4 sentences, ")
                 .append("or a few bullet points when listing things. You may use **bold** for key facts.\n")
                 .append("- For anything about LSPU (classes, suspensions, exams, scholarships, events, ")
-                .append("rules, offices), use ONLY the announcements and handbook reference below. Mention the page and date ")
+                .append("rules, offices), use ONLY the announcements and handbook excerpts below. Mention the page and date ")
                 .append("when it helps. Never invent dates, deadlines, requirements, offices or policies.\n")
                 .append("- If the announcements don't cover the question, say you couldn't find it in ")
                 .append("the announcements on the app, and suggest checking the official LSPU page or ")
@@ -295,11 +338,18 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 .append("- Don't say which AI model or company powers you. You are Kaleo.\n")
                 .append("- source_ids: the numbers of the announcements you actually used, or an empty list. ")
                 .append("Never write these numbers or brackets like [1] in the answer; name the page and date instead.\n")
-                .append("- used_handbook: true only if you used the handbook reference.\n\n");
+                .append("- handbook_ids: the numbers of the handbook excerpts you used (1 for [H1]), or an empty list.\n")
+                .append("- For rules, policies, requirements and university officials, prefer the handbook. ")
+                .append("For news, events and current advisories, prefer the announcements, since they are newer.\n\n");
 
-        if (handbook != null) {
-            sb.append("Handbook reference (").append(safe(handbook.citation)).append("), ")
-                    .append(safe(handbook.title)).append(":\n").append(safe(handbook.content)).append("\n\n");
+        if (!handbook.isEmpty()) {
+            sb.append("Excerpts from the LSPU Student Handbook 2021:\n");
+            for (int i = 0; i < handbook.size(); i++) {
+                String[] h = handbook.get(i);
+                sb.append("\n[H").append(i + 1).append("] ").append(h[1])
+                        .append(" (").append(h[0]).append("):\n").append(h[2]).append("\n");
+            }
+            sb.append("\n");
         }
 
         if (posts.isEmpty()) {

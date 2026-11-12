@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Kaleo Local Nano AI Engine
@@ -16,9 +17,13 @@ import java.util.Set;
  * Implements Path 3: Hybrid Edge-First Nano RAG with Offline Autonomy.
  * Sub-15ms local inference, <20MB RAM, zero network dependency.
  * 
- * Supports rich bilingual (Tagalog, Taglish & English) conversational understanding,
- * campus life FAQs (Registrar, OSAS, Library, Clinic, Uniform), slot-filled RAG
- * extraction from cached Facebook posts, and seamless cloud fallback expansion.
+ * Features:
+ * - Bilingual (Tagalog, Taglish & English) conversational understanding.
+ * - Knowledge-Base priority for static campus guidance (grading scale, INC resolution, Dean's list,
+ *   office hours, clinic, library, dress code, lost ID, hotlines).
+ * - Exact-token grounded RAG extraction from cached announcements (Room DB).
+ * - Zero hallucination on class suspensions (no bogus quotes from unrelated posts).
+ * - Seamless cloud fallback expansion when online.
  */
 public class LocalNanoAIEngine {
 
@@ -27,7 +32,7 @@ public class LocalNanoAIEngine {
         SCHOLARSHIP, // TDP, CHED, UniFAST, OSAS validation, payouts, grants
         ACADEMICS,   // Exams, grading, enrollment, permits, schedules
         EVENTS,      // Campus activities, student council, assemblies, intrams
-        CAMPUS_INFO, // Registrar hours, OSAS location, clinic, library, dress code
+        CAMPUS_INFO, // Registrar hours, OSAS location, clinic, library, dress code, officials
         GREETING,    // Conversational greetings (hi, hello, magandang umaga, kamusta)
         GRATITUDE,   // Thanks, salamat, appreciation
         IDENTITY,    // Bot identity, capabilities, hackathon background
@@ -57,40 +62,46 @@ public class LocalNanoAIEngine {
     // ==========================================
 
     private static final List<String> SUSPENSION_KEYWORDS = Arrays.asList(
-            "pasok", "klase", "suspindido", "walang", "suspension", "suspend", "suspended",
-            "typhoon", "bagyo", "signal", "cancel", "cancelled", "cancellation", "weather",
-            "ulan", "rain", "storm", "baha", "flood", "pagasa", "declared", "walang pasok",
-            "may pasok", "papasok", "kristine", "pepito", "lpa", "low pressure", "gale",
-            "thunderstorm", "hazard", "red warning", "orange warning", "advisory", "asenso"
+            "pasok", "klase", "suspindido", "walang pasok", "may pasok", "walang klase",
+            "suspension", "suspend", "suspended", "typhoon", "bagyo", "signal", "cancel",
+            "cancelled", "weather", "ulan", "rain", "storm", "baha", "flood", "pagasa",
+            "declared", "kristine", "pepito", "lpa", "low pressure", "gale",
+            "thunderstorm", "hazard", "red warning", "orange warning", "advisory"
     );
 
     private static final List<String> SCHOLARSHIP_KEYWORDS = Arrays.asList(
             "scholarship", "tdp", "ched", "osas", "allowance", "unifast",
             "stipend", "grant", "validation", "financial", "requirements", "payroll",
-            "cheque", "atm", "payout", "qualifiers", "shortlist", "application",
-            "deadline", "beneficiary", "dokumento", "annex", "indigency", "assessment",
-            "submission", "financial aid", "tes", "educational assistance"
+            "payout", "qualifiers", "shortlist", "beneficiary", "dokumento",
+            "indigency", "financial aid", "tes", "educational assistance"
     );
 
     private static final List<String> ACADEMICS_KEYWORDS = Arrays.asList(
             "midterm", "final", "finals", "exam", "exams", "examination", "examinations",
             "permit", "permits", "grades", "enrollment", "enrolment", "add/drop",
-            "schedule", "registrar", "calendar", "curriculum", "graduation", "clearance",
-            "prelim", "prelims", "sem", "semester", "academic calendar", "adviser",
-            "room assignment", "grading", "incomplete", "inc", "eval", "evaluation"
+            "schedule", "calendar", "curriculum", "graduation", "clearance",
+            "prelim", "prelims", "semester", "academic calendar", "grading",
+            "incomplete", "inc", "evaluation", "dropping", "shifting"
     );
 
     private static final List<String> EVENTS_KEYWORDS = Arrays.asList(
             "event", "events", "intrams", "intramurals", "octa", "coesc",
             "orientation", "webinar", "activity", "activities", "general assembly", "assembly",
             "hackathon", "hack4success", "symposium", "workshop", "foundation day",
-            "acquaintance", "party", "cheering", "sports", "seminar", "booth", "contest"
+            "acquaintance", "party", "cheering", "sports", "seminar", "contest"
+    );
+
+    private static final List<String> CAMPUS_INFO_KEYWORDS = Arrays.asList(
+            "clinic", "library", "aklatan", "registrar", "osas", "uniform", "wash day",
+            "civilian", "dress code", "damit", "suot", "lost id", "nawala", "id", "lanyard",
+            "good moral", "president", "presidente", "official", "officials", "portal",
+            "wifi", "emergency", "hotline", "office hours", "oras", "saan"
     );
 
     private static final List<String> GREETING_KEYWORDS = Arrays.asList(
             "hi", "hello", "hey", "kamusta", "kumusta", "musta", "magandang umaga",
             "magandang hapon", "magandang gabi", "magandang araw", "good morning",
-            "good afternoon", "good evening", "yo", "sup", "uy", "oy", "good day"
+            "good afternoon", "good evening", "good day"
     );
 
     private static final List<String> GRATITUDE_KEYWORDS = Arrays.asList(
@@ -101,27 +112,29 @@ public class LocalNanoAIEngine {
     private static final List<String> IDENTITY_KEYWORDS = Arrays.asList(
             "sino ka", "who are you", "ano pangalan mo", "what is your name",
             "sino gumawa", "who made you", "ano kaya mo", "what can you do", "capabilities",
-            "hackathon", "hack4success", "creator", "developers"
+            "hackathon", "hack4success", "creator", "developers", "what is kaleo", "ano ang kaleo"
     );
 
     private static final Set<String> STOP_WORDS = new HashSet<>(Arrays.asList(
             "ba", "sa", "ng", "ang", "mga", "is", "the", "in", "at", "to", "for",
             "of", "a", "an", "on", "and", "or", "what", "when", "kailan", "ano",
-            "sino", "saan", "paano", "bukas", "po", "naman", "nga", "ko", "mo",
+            "sino", "saan", "paano", "po", "naman", "nga", "ko", "mo",
             "kayo", "tayo", "natin", "doon", "dito", "meron", "may"
     ));
 
     /**
      * Executes the on-device RAG resolution in <15ms.
-     * 1. Tokenize query & extract intent (Conversational, Campus FAQ, or Announcement)
-     * 2. Handle conversational chitchat and campus guidance directly
-     * 3. Score candidate posts from Room DB using hybrid scoring
-     * 4. Synthesize natural language answer with verified source citation
+     * 1. Check conversational chitchat (Greeting, Gratitude, Identity)
+     * 2. Check Static Policy / Campus Life Knowledge Base first (Grading scale, INC, Dean's list,
+     *    Office hours, Clinic, Library, Uniform, ID replacement, Good moral, Directory)
+     * 3. Evaluate cached announcements from Room DB with strict keyword grounding
+     * 4. Secondary Knowledge Base fallback
+     * 5. Context-aware, hallucination-free answer synthesis
      */
     public NanoAIResult processQuery(String userQuery, List<AnnouncementEntity> cachedPosts) {
         if (userQuery == null || userQuery.trim().isEmpty()) {
             return new NanoAIResult(
-                    "Kamusta! Mag-type ng tanong tungkol sa class suspensions, scholarships (TDP/CHED), exam dates, o campus announcements.",
+                    "Kamusta! Mag-type ng tanong tungkol sa class suspensions, scholarships (TDP/CHED), exam dates, o campus rules.",
                     Intent.UNKNOWN, 0.0f, null, true
             );
         }
@@ -166,12 +179,39 @@ public class LocalNanoAIEngine {
             );
         }
 
-        // --- 2. Evaluate Cached Announcements from Room DB ---
+        // --- 2. Knowledge Base Priority for Static Guidance / Rules Queries ---
+        CampusKnowledgeBase.KnowledgeEntry kbEntry = CampusKnowledgeBase.findBestMatch(normalizedQuery, detectedIntent);
+        boolean isStaticGuidanceQuery = (detectedIntent == Intent.CAMPUS_INFO) ||
+                normalizedQuery.contains("grading") || normalizedQuery.contains("passing") ||
+                normalizedQuery.contains("inc") || normalizedQuery.contains("deans list") ||
+                normalizedQuery.contains("dean's list") || normalizedQuery.contains("honor") ||
+                normalizedQuery.contains("tor") || normalizedQuery.contains("cor") ||
+                normalizedQuery.contains("unifast") || normalizedQuery.contains("good moral") ||
+                normalizedQuery.contains("saan") || normalizedQuery.contains("hours") ||
+                normalizedQuery.contains("oras") || normalizedQuery.contains("president") ||
+                normalizedQuery.contains("presidente") || normalizedQuery.contains("course") ||
+                normalizedQuery.contains("program") || normalizedQuery.contains("kurso") ||
+                normalizedQuery.contains("tdp") || normalizedQuery.contains("tulong dunong") ||
+                normalizedQuery.contains("requirement") || normalizedQuery.contains("policy") ||
+                normalizedQuery.contains("guideline") || normalizedQuery.contains("protocol") ||
+                normalizedQuery.contains("hotline") || normalizedQuery.contains("emergency");
+
+        if (kbEntry != null && isStaticGuidanceQuery) {
+            return new NanoAIResult(
+                    kbEntry.content,
+                    kbEntry.intent != null ? kbEntry.intent : detectedIntent,
+                    0.96f,
+                    null,
+                    true
+            );
+        }
+
+        // --- 3. Evaluate Cached Announcements from Room DB for Dynamic Updates ---
         AnnouncementEntity bestPost = null;
-        float bestScore = -1f;
+        float bestScore = -1.0f;
+        List<String> queryTokens = extractTokens(normalizedQuery);
 
         if (cachedPosts != null && !cachedPosts.isEmpty()) {
-            List<String> queryTokens = extractTokens(normalizedQuery);
             long minTime = Long.MAX_VALUE;
             long maxTime = Long.MIN_VALUE;
             for (AnnouncementEntity post : cachedPosts) {
@@ -180,7 +220,7 @@ public class LocalNanoAIEngine {
             }
 
             for (AnnouncementEntity post : cachedPosts) {
-                float score = calculateHybridScore(post, detectedIntent, queryTokens, minTime, maxTime);
+                float score = calculateHybridScore(post, detectedIntent, queryTokens, minTime, maxTime, normalizedQuery);
                 if (score > bestScore) {
                     bestScore = score;
                     bestPost = post;
@@ -188,18 +228,25 @@ public class LocalNanoAIEngine {
             }
         }
 
-        // If an announcement post has a strong direct match (score >= 0.35), synthesize from the post!
-        if (bestPost != null && bestScore >= 0.35f) {
-            if (detectedIntent == Intent.UNKNOWN) {
-                detectedIntent = inferIntentFromPost(bestPost);
+        // Accept announcement match ONLY with genuine keyword relevance (score >= 0.45)
+        if (bestPost != null && bestScore >= 0.45f) {
+            if (detectedIntent == Intent.SUSPENSION) {
+                boolean hasSuspensionContent = containsSuspensionMarkers(bestPost.message) ||
+                        (bestPost.categories != null && bestPost.categories.contains("Suspension"));
+                if (hasSuspensionContent) {
+                    String answer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
+                    return new NanoAIResult(answer, detectedIntent, Math.min(0.99f, bestScore), bestPost, true);
+                }
+            } else {
+                if (detectedIntent == Intent.UNKNOWN) {
+                    detectedIntent = inferIntentFromPost(bestPost);
+                }
+                String answer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
+                return new NanoAIResult(answer, detectedIntent, Math.min(0.99f, bestScore), bestPost, true);
             }
-            String synthesizedAnswer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
-            float confidence = Math.min(0.99f, Math.max(0.65f, bestScore));
-            return new NanoAIResult(synthesizedAnswer, detectedIntent, confidence, bestPost, true);
         }
 
-        // --- 3. Offline Encyclopedic Knowledge Base (Grading, Handbook, Courses, Directory, Hotlines) ---
-        CampusKnowledgeBase.KnowledgeEntry kbEntry = CampusKnowledgeBase.findBestMatch(normalizedQuery, detectedIntent);
+        // --- 4. Secondary Knowledge Base Check (if static guidance wasn't triggered) ---
         if (kbEntry != null) {
             return new NanoAIResult(
                     kbEntry.content,
@@ -210,14 +257,15 @@ public class LocalNanoAIEngine {
             );
         }
 
-        // --- 4. Fallback for specific intents if no post / KB matched ---
+        // --- 5. Clean, Reassuring Suspension Default (Never quote unrelated posts!) ---
         if (detectedIntent == Intent.SUSPENSION) {
             return new NanoAIResult(
-                    "✅ **Classes remain normal as of today.**\n\nNo class suspension advisories were found in your offline announcement cache. Keep monitoring official pages for real-time weather changes.",
-                    Intent.SUSPENSION, 0.85f, null, true
+                    "✅ **Classes are normal as of today.**\n\nNo active class suspension announcements have been posted on your saved feed. Continue monitoring official campus channels for weather advisories.",
+                    Intent.SUSPENSION, 0.88f, null, true
             );
         }
 
+        // --- 6. Fallback ---
         return fallbackResult(detectedIntent, normalizedQuery);
     }
 
@@ -237,8 +285,7 @@ public class LocalNanoAIEngine {
         NanoAIResult localResult = processQuery(userQuery, cachedPosts);
 
         // Edge-First priority:
-        // 1. If local RAG has a grounded announcement match from Room DB with high confidence,
-        // use local to guarantee 0% hallucination and sub-15ms speed.
+        // 1. Grounded announcement match from Room DB with high confidence
         if (localResult.primarySource != null && localResult.confidence >= 0.55f) {
             return localResult;
         }
@@ -251,8 +298,7 @@ public class LocalNanoAIEngine {
             return localResult;
         }
 
-        // 3. When device is ONLINE, route broader queries, ungrounded questions,
-        // or open-ended campus questions to Cloud AI!
+        // 3. When device is ONLINE, route broader queries or ungrounded questions to Cloud AI
         if (cloudProvider != null && cloudProvider.isOnline()) {
             return cloudProvider.queryCloudFallback(userQuery, localResult.detectedIntent, localResult.primarySource);
         }
@@ -262,128 +308,83 @@ public class LocalNanoAIEngine {
 
     /**
      * Stage 1: Intent & Tokenizer
-     * Bilingual Tagalog/Taglish parser matching colloquial and conversational patterns.
+     * Precise bilingual Tagalog/Taglish parser matching colloquial patterns with token boundaries.
      */
     public Intent detectIntent(String query) {
-        int suspensionHits = countHits(query, SUSPENSION_KEYWORDS);
-        int scholarshipHits = countHits(query, SCHOLARSHIP_KEYWORDS);
-        int academicsHits = countHits(query, ACADEMICS_KEYWORDS);
-        int eventsHits = countHits(query, EVENTS_KEYWORDS);
-        int greetingHits = countHits(query, GREETING_KEYWORDS);
-        int gratitudeHits = countHits(query, GRATITUDE_KEYWORDS);
-        int identityHits = countHits(query, IDENTITY_KEYWORDS);
+        if (query == null) return Intent.UNKNOWN;
+        String q = query.toLowerCase(Locale.ROOT).trim();
 
-        // Common Filipino colloquial phrases
-        if (query.contains("may pasok") || query.contains("walang klase") ||
-                query.contains("walang pasok") || query.contains("may klase") ||
-                query.contains("papasok ba") || query.contains("meron bang pasok")) {
-            suspensionHits += 4;
-        }
-        if (query.contains("kailan pasahan") || query.contains("submission deadline") ||
-                query.contains("kailan payout") || query.contains("mag-apply")) {
-            scholarshipHits += 3;
-        }
-        if (query.contains("kailan exam") || query.contains("exam schedule") ||
-                query.contains("kumuha ng permit")) {
-            academicsHits += 3;
+        // Conversational short-circuits
+        if (q.equals("hi") || q.equals("hello") || q.equals("hey") || q.startsWith("hi ") ||
+                q.contains("magandang umaga") || q.contains("magandang hapon") ||
+                q.contains("magandang gabi") || q.contains("good morning") ||
+                q.contains("good afternoon") || q.contains("good evening") ||
+                q.contains("kamusta") || q.contains("kumusta") || q.equals("musta")) {
+            return Intent.GREETING;
         }
 
-        // Prioritize conversational matches when query is short / purely conversational
-        if (query.length() < 30) {
-            if (identityHits > 0) return Intent.IDENTITY;
-            if (gratitudeHits > 0) return Intent.GRATITUDE;
-            if (greetingHits > 0 && suspensionHits == 0 && scholarshipHits == 0 && academicsHits == 0) {
-                return Intent.GREETING;
-            }
+        if (q.contains("salamat") || q.contains("thank you") || q.contains("thanks") ||
+                q.equals("ty") || q.equals("thx") || q.contains("appreciate")) {
+            return Intent.GRATITUDE;
         }
 
-        int maxHits = Math.max(suspensionHits, Math.max(scholarshipHits, Math.max(academicsHits, Math.max(eventsHits, greetingHits))));
-        if (maxHits <= 0) {
-            return Intent.UNKNOWN;
+        if (q.contains("sino ka") || q.contains("who are you") || q.contains("ano pangalan mo") ||
+                q.contains("what is your name") || q.contains("what is kaleo") || q.contains("ano ang kaleo") ||
+                q.contains("sino gumawa") || q.contains("who made you")) {
+            return Intent.IDENTITY;
         }
 
-        if (maxHits == suspensionHits) return Intent.SUSPENSION;
-        if (maxHits == scholarshipHits) return Intent.SCHOLARSHIP;
-        if (maxHits == academicsHits) return Intent.ACADEMICS;
-        if (maxHits == eventsHits) return Intent.EVENTS;
-        return Intent.GENERAL;
-    }
-
-    /**
-     * Built-in Offline Campus Knowledge Base for LSPU San Pablo City Campus.
-     */
-    private NanoAIResult checkCampusFaq(String query) {
-        // 1. Registrar / Administrative Office Hours
-        if (query.contains("registrar") || query.contains("office hours") ||
-                (query.contains("oras") && query.contains("open")) ||
-                query.contains("sarado") || query.contains("schedule ng office")) {
-            return new NanoAIResult(
-                    "🏛️ **LSPU-SPCC Registrar & Office Hours**\n\n" +
-                    "• **Schedule**: Monday to Friday, 8:00 AM – 5:00 PM (Closed on weekends and official holidays).\n" +
-                    "• **Services**: Transcript of Records (TOR), Honorable Dismissal, Certificate of Registration (COR), and enrollment evaluations.\n" +
-                    "• **Location**: Ground Floor, Administration Building.",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // Suspension patterns
+        if (q.contains("may pasok") || q.contains("walang pasok") || q.contains("walang klase") ||
+                q.contains("may klase") || q.contains("suspindido") || q.contains("suspension") ||
+                q.contains("bagyo") || q.contains("typhoon") || q.contains("is there class") ||
+                q.contains("class suspension") || q.contains("signal #") || q.contains("signal no") ||
+                q.contains("signal 1") || q.contains("signal 2")) {
+            return Intent.SUSPENSION;
         }
 
-        // 2. OSAS (Office of Student Affairs & Services)
-        if (query.contains("saan ang osas") || query.contains("osas location") ||
-                query.contains("ano ang osas") || query.contains("student affairs")) {
-            return new NanoAIResult(
-                    "🏢 **Office of Student Affairs and Services (OSAS)**\n\n" +
-                    "• **Purpose**: Manages student scholarship validations (TDP/CHED/UniFAST), student discipline, organization accreditations, and student welfare.\n" +
-                    "• **Location**: Student Services Building, LSPU San Pablo City Campus.\n" +
-                    "• **Contact Tip**: For scholarship document submissions, visit during office hours (8:00 AM – 5:00 PM).",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // Campus Info / Directory / Guidelines
+        if (q.contains("uniform") || q.contains("wash day") || q.contains("civilian") ||
+                q.contains("suot") || q.contains("damit") || q.contains("clinic") ||
+                q.contains("library") || q.contains("aklatan") || q.contains("lost id") ||
+                q.contains("nawala") || (q.contains("id") && (q.contains("nawala") || q.contains("kumuha") || q.contains("replacement") || q.contains("lanyard"))) ||
+                q.contains("good moral") || q.contains("president") || q.contains("presidente") ||
+                q.contains("hotline") || q.contains("emergency") || q.contains("portal") ||
+                q.contains("courses offered") || q.contains("programs offered") || q.contains("mga kurso") ||
+                (q.contains("saan") && (q.contains("registrar") || q.contains("osas") || q.contains("clinic") || q.contains("library")))) {
+            return Intent.CAMPUS_INFO;
         }
 
-        // 3. Health Services / Clinic
-        if (query.contains("clinic") || query.contains("first aid") ||
-                query.contains("gamot") || query.contains("masakit") || query.contains("emergency")) {
-            return new NanoAIResult(
-                    "🏥 **LSPU-SPCC Health Services Clinic**\n\n" +
-                    "• **Services**: Emergency first aid, basic consultations, OTC medicine dispensing, and medical/dental clearances.\n" +
-                    "• **Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
-                    "• **Emergency Note**: In case of severe medical emergencies on campus, immediately alert campus security or your college dean's office.",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // Academics & Grading
+        if (q.contains("midterm") || q.contains("exam") || q.contains("finals") ||
+                q.contains("permit") || q.contains("grade") || q.contains("grading") ||
+                q.contains("passing") || q.contains("singko") || q.contains("tres") ||
+                q.contains("inc") || q.contains("incomplete") || q.contains("deans list") ||
+                q.contains("dean's list") || q.contains("latin honor") || q.contains("cor") ||
+                q.contains("tor") || q.contains("transcript") || q.contains("clearance") ||
+                q.contains("shifting") || q.contains("dropping")) {
+            return Intent.ACADEMICS;
         }
 
-        // 4. Campus Library
-        if (query.contains("library") || query.contains("aklatan") || query.contains("hiram ng libro")) {
-            return new NanoAIResult(
-                    "📚 **LSPU-SPCC University Library**\n\n" +
-                    "• **Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
-                    "• **Requirements**: Bring your validated student ID or Certificate of Registration (COR).\n" +
-                    "• **Facilities**: Book circulation, quiet study zones, thesis references, and electronic learning kiosks.",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // Scholarship
+        if (q.contains("scholarship") || q.contains("tdp") || q.contains("ched") ||
+                q.contains("unifast") || q.contains("allowance") || q.contains("stipend") ||
+                q.contains("grant") || q.contains("free tuition") || q.contains("indigency")) {
+            return Intent.SCHOLARSHIP;
         }
 
-        // 5. Dress Code / Uniform Policy
-        if (query.contains("uniform") || query.contains("dress code") ||
-                query.contains("wash day") || query.contains("civilian") || query.contains("suot")) {
-            return new NanoAIResult(
-                    "👔 **LSPU Uniform & Dress Code Guidelines**\n\n" +
-                    "• **Regular Days**: Prescribed university uniform with school ID prominently worn.\n" +
-                    "• **Wash / Civilian Days**: Typically Wednesdays and Saturdays (subject to college guidelines).\n" +
-                    "• **Dress Code Reminders**: Slippers, sleeveless tops, cropped shirts, and distressed shorts are strictly prohibited.",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // Events
+        if (q.contains("event") || q.contains("intrams") || q.contains("activity") ||
+                q.contains("seminar") || q.contains("contest") || q.contains("assembly")) {
+            return Intent.EVENTS;
         }
 
-        // 6. Wi-Fi / Student Portal
-        if (query.contains("portal") || query.contains("grades online") || query.contains("wifi")) {
-            return new NanoAIResult(
-                    "🌐 **LSPU Student Portal & Connectivity**\n\n" +
-                    "• **Student Portal**: Access your registered subjects, grades, and fee assessments at the official LSPU web portal.\n" +
-                    "• **Campus Wi-Fi**: Available in designated academic zones. Inquire at the MIS/ICT unit for student network login credentials.",
-                    Intent.CAMPUS_INFO, 0.95f, null, true
-            );
+        // General fallback
+        if (q.contains("help") || q.contains("tulong") || q.contains("ano pwede") || q.contains("features")) {
+            return Intent.GENERAL;
         }
 
-        return null;
+        return Intent.UNKNOWN;
     }
 
     private String buildGreetingResponse(String query) {
@@ -402,90 +403,115 @@ public class LocalNanoAIEngine {
     /**
      * Stage 2: Context Ranker
      * Evaluates cached Room SQLite announcements:
-     * Score = (IntentWeight * 0.4) + (KeywordHits * 0.4) + (Recency * 0.2)
+     * - Hard rejection (score = 0) if query tokens do not match post content.
+     * - Evaluates keyword hits (0.50), category alignment (0.30), recency (0.15), and authority (0.05).
      */
     private float calculateHybridScore(AnnouncementEntity post, Intent intent,
-                                       List<String> queryTokens, long minTime, long maxTime) {
-        String content = (post.message + " " + post.pageName).toLowerCase(Locale.ROOT);
+                                       List<String> queryTokens, long minTime, long maxTime, String rawQuery) {
+        String content = (post.message + " " + (post.pageName != null ? post.pageName : "") + " " +
+                (post.keyTakeaway != null ? post.keyTakeaway : "")).toLowerCase(Locale.ROOT);
 
-        // 1. Intent Weight (0.4)
-        float intentWeight = 0.0f;
-        List<String> targetDict = getDictionaryForIntent(intent);
-        if (targetDict != null) {
-            int hits = countHits(content, targetDict);
-            if (hits > 0) {
-                intentWeight = Math.min(1.0f, hits / 2.0f);
-            }
-        }
-
-        // 2. Keyword Hits (0.4)
-        float keywordWeight = 0.0f;
+        // 1. Mandatory Keyword Hits (0.50)
+        int matchCount = 0;
         if (!queryTokens.isEmpty()) {
-            int matchCount = 0;
             for (String token : queryTokens) {
-                if (content.contains(token)) {
+                if (matchesWord(content, token)) {
                     matchCount++;
                 }
             }
-            keywordWeight = (float) matchCount / queryTokens.size();
+        }
+        if (matchCount == 0) {
+            return 0.0f; // HARD REJECTION: Post does not contain query terms!
         }
 
-        // 3. Recency (0.2)
-        float recencyWeight = 1.0f;
+        // If query has 2 or more distinct tokens, require at least 2 matches or >= 50% match
+        if (queryTokens.size() >= 2 && matchCount < 2 && ((float) matchCount / queryTokens.size() < 0.5f)) {
+            return 0.0f; // Weak partial hit: do not override
+        }
+
+        // Specific entity guard: if user explicitly asked for TDP, post must mention TDP
+        if (rawQuery.contains("tdp") && !content.contains("tdp")) {
+            return 0.0f;
+        }
+
+        // Specific query guard: if asking for deadline/kailan, post must indicate dates or deadlines
+        if ((rawQuery.contains("deadline") || rawQuery.contains("kailan")) &&
+                !content.contains("deadline") && !content.contains("until") &&
+                !content.contains("submit") && !content.contains("bago") &&
+                (post.importantDates == null || post.importantDates.equals("[]"))) {
+            return 0.0f;
+        }
+
+        float keywordScore = (float) matchCount / queryTokens.size();
+
+        // 2. Category / Intent Alignment (0.30)
+        float categoryScore = 0.0f;
+        if (post.categories != null) {
+            if (intent == Intent.SUSPENSION && post.categories.contains("Suspension")) categoryScore = 1.0f;
+            else if (intent == Intent.SCHOLARSHIP && post.categories.contains("Scholarship")) categoryScore = 1.0f;
+            else if (intent == Intent.ACADEMICS && (post.categories.contains("Exams") || post.categories.contains("Enrollment"))) categoryScore = 1.0f;
+            else if (intent == Intent.EVENTS && post.categories.contains("Events")) categoryScore = 1.0f;
+        } else {
+            if (intent == Intent.SUSPENSION && containsSuspensionMarkers(content)) categoryScore = 0.8f;
+            else if (intent == Intent.SCHOLARSHIP && (content.contains("scholarship") || content.contains("tdp") || content.contains("allowance"))) categoryScore = 0.8f;
+            else if (intent == Intent.ACADEMICS && (content.contains("exam") || content.contains("midterm") || content.contains("schedule"))) categoryScore = 0.8f;
+        }
+
+        // 3. Recency (0.15)
+        float recencyScore = 0.5f;
         if (maxTime > minTime) {
-            recencyWeight = 0.2f + 0.8f * ((float) (post.createdAt - minTime) / (maxTime - minTime));
+            recencyScore = 0.2f + 0.8f * ((float) (post.createdAt - minTime) / (maxTime - minTime));
         }
 
-        // Official Page Authority Boost
+        // 4. Official Page Authority Boost (0.05)
         float authorityBonus = 0.0f;
         if (post.pageName != null && (post.pageName.contains("LSPU") || post.pageName.contains("OSAS"))) {
             authorityBonus = 0.05f;
         }
 
-        float score = (intentWeight * 0.4f) + (keywordWeight * 0.4f) + (recencyWeight * 0.2f) + authorityBonus;
-        return Math.min(1.0f, score);
+        return (keywordScore * 0.50f) + (categoryScore * 0.30f) + (recencyScore * 0.15f) + authorityBonus;
+    }
+
+    private static boolean containsSuspensionMarkers(String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase(Locale.ROOT);
+        return t.contains("suspend") || t.contains("walang pasok") ||
+                t.contains("walang klase") || t.contains("signal #") ||
+                t.contains("signal no") || t.contains("no classes");
     }
 
     /**
      * Stage 3: Answer Synthesizer
-     * Extracts operative facts (status, dates, guidelines) and compiles conversational responses.
+     * Uses pre-extracted keyTakeaway if available; otherwise extracts relevant sentences with grounded citations.
      */
     private String synthesizeAnswer(Intent intent, AnnouncementEntity source, String query) {
         if (source == null) {
             return fallbackResult(intent, query).answer;
         }
 
-        String bestSentence = extractBestSentence(source.message, query, intent);
-        bestSentence = cleanPrefixes(bestSentence);
+        String snippet = source.keyTakeaway;
+        if (snippet == null || snippet.trim().isEmpty()) {
+            snippet = extractBestSentence(source.message, query, intent);
+        }
+        snippet = cleanPrefixes(snippet);
 
         if (intent == Intent.SUSPENSION) {
-            boolean isSuspended = containsAny(source.message.toLowerCase(Locale.ROOT),
-                    "suspend", "suspended", "suspindido", "walang pasok", "walang klase", "signal #", "signal no");
-            if (!isSuspended) {
-                // We only know no suspension post was found, not that classes are on;
-                // the newest advisory may not have synced yet.
-                return "✅ **No class suspension found** in the announcements saved on your phone.\n\n"
-                        + "Closest match from **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\n"
-                        + "Pull down on the Feed to sync, and check the official page for the latest advisory. Read official post ↗";
-            } else {
-                return "⚠️ **Class Suspension Advisory**\n\nPer official advisory from **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\nPlease monitor for further updates and stay safe. Read official post ↗";
-            }
+            return "⚠️ **Class Suspension Advisory**\n\nPer official advisory from **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nPlease monitor official channels for updates and stay safe. Read official post ↗";
         }
 
         if (intent == Intent.SCHOLARSHIP) {
-            return "🎓 **Scholarship & Financial Aid Notice**\n\nFrom **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\n📌 *Make sure all documents and permits are submitted before the deadline.* Read official post ↗";
+            return "🎓 **Scholarship & Financial Aid Notice**\n\nFrom **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n📌 *Make sure all requirements are submitted before the deadline.* Read official post ↗";
         }
 
         if (intent == Intent.ACADEMICS) {
-            return "📚 **Academic & Exam Advisory**\n\nAccording to **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\n✏️ *Double-check your schedule and secure your examination permit.* Read official post ↗";
+            return "📚 **Academic Advisory**\n\nAccording to **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n✏️ *Double-check your schedule with your college or adviser.* Read official post ↗";
         }
 
         if (intent == Intent.EVENTS) {
-            return "📢 **Campus Activity & Event**\n\nAnnounced by **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\n🤝 *Check with your student council for participation guidelines.* Read official post ↗";
+            return "📢 **Campus Activity & Event**\n\nAnnounced by **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n🤝 *Check with organizers for guidelines.* Read official post ↗";
         }
 
-        // Generic grounded response
-        return "According to **" + source.pageName + "**:\n\"" + ensurePeriod(bestSentence) + "\"\n\nRead official post ↗";
+        return "According to **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nRead official post ↗";
     }
 
     private String extractBestSentence(String message, String query, Intent intent) {
@@ -494,11 +520,7 @@ public class LocalNanoAIEngine {
         }
 
         String[] sentences = message.split("(?<=[.!?])\\s+|\\n+");
-        List<String> queryTokens = extractTokens(query.toLowerCase(Locale.ROOT));
-        List<String> intentDict = getDictionaryForIntent(intent);
-
-        boolean isDateQuery = containsAny(query, "kailan", "when", "date", "oras", "time", "deadline", "hanggang");
-        boolean isVenueQuery = containsAny(query, "saan", "where", "location", "venue", "room");
+        List<String> queryTokens = extractTokens(query);
 
         String best = sentences[0].trim();
         int maxScore = -1;
@@ -510,21 +532,7 @@ public class LocalNanoAIEngine {
 
             int score = 0;
             for (String token : queryTokens) {
-                if (lower.contains(token)) score += 3;
-            }
-            if (intentDict != null) {
-                for (String word : intentDict) {
-                    if (lower.contains(word)) score += 1;
-                }
-            }
-
-            // Slot priority bonuses
-            if (isDateQuery && containsAny(lower, "january", "february", "march", "april", "may", "june",
-                    "july", "august", "september", "october", "november", "december", "nov", "dec", "tomorrow", "bukas", "deadline", "until")) {
-                score += 4;
-            }
-            if (isVenueQuery && containsAny(lower, "room", "building", "hall", "gym", "osas", "office", "campus", "court")) {
-                score += 4;
+                if (matchesWord(lower, token)) score += 3;
             }
 
             if (score > maxScore) {
@@ -537,26 +545,30 @@ public class LocalNanoAIEngine {
     }
 
     private Intent inferIntentFromPost(AnnouncementEntity post) {
-        String content = (post.message + " " + post.pageName).toLowerCase(Locale.ROOT);
-        int suspensionHits = countHits(content, SUSPENSION_KEYWORDS);
-        int scholarshipHits = countHits(content, SCHOLARSHIP_KEYWORDS);
-        int academicsHits = countHits(content, ACADEMICS_KEYWORDS);
-        int eventsHits = countHits(content, EVENTS_KEYWORDS);
+        if (post == null) return Intent.UNKNOWN;
+        if (post.categories != null) {
+            if (post.categories.contains("Suspension")) return Intent.SUSPENSION;
+            if (post.categories.contains("Scholarship")) return Intent.SCHOLARSHIP;
+            if (post.categories.contains("Exams") || post.categories.contains("Enrollment")) return Intent.ACADEMICS;
+            if (post.categories.contains("Events")) return Intent.EVENTS;
+        }
 
-        int maxHits = Math.max(suspensionHits, Math.max(scholarshipHits, Math.max(academicsHits, eventsHits)));
-        if (maxHits <= 0) return Intent.UNKNOWN;
-        if (maxHits == suspensionHits) return Intent.SUSPENSION;
-        if (maxHits == scholarshipHits) return Intent.SCHOLARSHIP;
-        if (maxHits == academicsHits) return Intent.ACADEMICS;
-        return Intent.EVENTS;
+        String content = (post.message + " " + post.pageName).toLowerCase(Locale.ROOT);
+        if (containsSuspensionMarkers(content)) return Intent.SUSPENSION;
+        if (content.contains("scholarship") || content.contains("tdp") || content.contains("allowance")) return Intent.SCHOLARSHIP;
+        if (content.contains("exam") || content.contains("midterm") || content.contains("permit")) return Intent.ACADEMICS;
+        if (content.contains("event") || content.contains("intrams") || content.contains("contest")) return Intent.EVENTS;
+
+        return Intent.GENERAL;
     }
 
     private String cleanPrefixes(String s) {
         if (s == null) return "";
-        return s.replaceFirst("^(?i)(ADVISORY|ACADEMIC ADVISORY|ANNOUNCEMENT|ATTENTION[^:]*|CALL FOR[^:]*|NOTICE):\\s*", "").trim();
+        return s.replaceFirst("^(?i)(Sample:?\\s*|ADVISORY|ACADEMIC ADVISORY|ANNOUNCEMENT|ATTENTION[^:]*|CALL FOR[^:]*|NOTICE|#LSPUAnnouncement\\s*\\|\\s*):\\s*", "").trim();
     }
 
     private String ensurePeriod(String s) {
+        if (s == null || s.isEmpty()) return "";
         s = s.trim();
         if (s.endsWith(".") || s.endsWith("!") || s.endsWith("?")) {
             return s;
@@ -571,27 +583,20 @@ public class LocalNanoAIEngine {
                 "• *\"May pasok ba bukas?\"* (Suspension checks)\n" +
                 "• *\"Kailan deadline ng scholarship?\"* (TDP/CHED updates)\n" +
                 "• *\"Midterm exam schedule\"* (Academic calendar)\n" +
-                "• *\"Office hours ng registrar / OSAS\"* (Campus navigation)\n\n" +
-                "*(Mag-sync o kumonekta sa internet para sa pinakabagong Facebook posts!)*",
+                "• *\"Office hours ng registrar / OSAS\"* (Campus navigation)",
                 intent, 0.20f, null, true
         );
     }
 
-    private int countHits(String text, List<String> keywords) {
-        int count = 0;
-        for (String kw : keywords) {
-            if (text.contains(kw)) {
-                count++;
-            }
+    private static boolean matchesWord(String text, String word) {
+        if (text == null || word == null) return false;
+        String t = text.toLowerCase(Locale.ROOT);
+        String w = word.toLowerCase(Locale.ROOT);
+        if (w.length() <= 3) {
+            Pattern p = Pattern.compile("\\b" + Pattern.quote(w) + "\\b");
+            return p.matcher(t).find();
         }
-        return count;
-    }
-
-    private boolean containsAny(String text, String... words) {
-        for (String w : words) {
-            if (text.contains(w)) return true;
-        }
-        return false;
+        return t.contains(w);
     }
 
     private List<String> extractTokens(String text) {
@@ -613,6 +618,7 @@ public class LocalNanoAIEngine {
             case SCHOLARSHIP: return SCHOLARSHIP_KEYWORDS;
             case ACADEMICS: return ACADEMICS_KEYWORDS;
             case EVENTS: return EVENTS_KEYWORDS;
+            case CAMPUS_INFO: return CAMPUS_INFO_KEYWORDS;
             case GREETING: return GREETING_KEYWORDS;
             case GRATITUDE: return GRATITUDE_KEYWORDS;
             case IDENTITY: return IDENTITY_KEYWORDS;

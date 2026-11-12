@@ -20,22 +20,20 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.TimeZone;
 
 /**
- * Cloud AI Adapter for Path 3 (Hybrid Edge-First Nano RAG with Cloud Fallback)
- * 
- * Provides live multi-tier AI expansion when the device is connected to the internet.
- * Connects directly to Google Gemini Flash models via REST API using standard Android networking
- * (HttpURLConnection + org.json, zero external dependencies).
- * 
- * Employs a multi-tier model fallback strategy:
- * 1. gemini-3.5-flash-lite (Ultra-low latency ~800ms, highly responsive)
- * 2. gemini-3.1-flash-lite (Reliable secondary fallback)
- * 3. gemini-3.6-flash (Tertiary fallback)
- * 
- * If all cloud models fail or network is unavailable, it gracefully consults
- * the comprehensive CampusKnowledgeBase to always return accurate, helpful LSPU-SPCC answers.
+ * Online answers: sends the question, the recent chat and the most relevant saved
+ * announcements to Gemini, and asks for an answer grounded in those announcements.
+ * Returns null when offline or when Gemini can't be reached, so the local engine answers.
  */
 public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
 
@@ -44,15 +42,17 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
     private static final String GEMINI_BASE_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/";
 
-    /**
-     * Prioritized list of active Gemini models for cloud generation.
-     * Starts with ultra-low latency gemini-3.5-flash-lite (~800ms response).
-     */
     private static final String[] CANDIDATE_MODELS = {
             "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite",
             "gemini-3.6-flash"
     };
+
+    private static final int MAX_CONTEXT_POSTS = 20;
+    private static final int ALWAYS_INCLUDE_NEWEST = 8;
+    private static final int MAX_POST_CHARS = 900;
+    private static final int MAX_HISTORY_TURNS = 6;
+
+    private static final TimeZone PH_TIME = TimeZone.getTimeZone("Asia/Manila");
 
     private final Context context;
 
@@ -60,9 +60,6 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         this.context = context != null ? context.getApplicationContext() : null;
     }
 
-    /**
-     * Checks if the device has an active internet connection.
-     */
     public boolean isOnline() {
         if (context == null) return false;
         try {
@@ -89,137 +86,231 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         }
     }
 
-    /**
-     * Resolves queries via cloud intelligence when local cache does not have high-confidence matches.
-     * Tries live Gemini API candidates if GEMINI_API_KEY is present; otherwise falls back to
-     * comprehensive campus encyclopedic knowledge.
-     */
+    public static boolean hasApiKey() {
+        String key = BuildConfig.GEMINI_API_KEY;
+        return key != null && !key.trim().isEmpty() && !key.equals("null");
+    }
+
     @Override
     public LocalNanoAIEngine.NanoAIResult queryCloudFallback(String userQuery,
-                                                            LocalNanoAIEngine.Intent detectedIntent,
-                                                            AnnouncementEntity cachedSource) {
-        if (!isOnline()) {
-            return null; // Triggers transfer to local engine
+                                                            List<AnnouncementEntity> posts,
+                                                            List<LocalNanoAIEngine.Turn> history) {
+        if (!hasApiKey() || !isOnline()) {
+            return null;
         }
 
-        String apiKey = BuildConfig.GEMINI_API_KEY;
+        List<AnnouncementEntity> contextPosts = pickContextPosts(userQuery, posts);
+        String apiKey = BuildConfig.GEMINI_API_KEY.trim();
 
-        // 1. Try live Gemini calls across candidate models with automatic failover
-        if (apiKey != null && !apiKey.trim().isEmpty() && !apiKey.equals("null")) {
-            for (String modelName : CANDIDATE_MODELS) {
-                try {
-                    String liveAnswer = callGeminiLive(modelName, userQuery, cachedSource, apiKey.trim());
-                    if (liveAnswer != null && !liveAnswer.trim().isEmpty()) {
-                        // Check if Cloud AI evaluated the query and determined it should be resolved locally
-                        if (liveAnswer.trim().equals("[TRANSFER_TO_LOCAL]") || liveAnswer.contains("[TRANSFER_TO_LOCAL]")) {
-                            Log.d(TAG, "Cloud AI evaluated query and delegated transfer to local engine: " + userQuery);
-                            return null; // Signals transfer to local engine
+        for (String modelName : CANDIDATE_MODELS) {
+            try {
+                JSONObject reply = callGemini(modelName, userQuery, contextPosts, history, apiKey);
+                if (reply == null) continue;
+
+                String answer = reply.optString("answer", "").trim();
+                if (answer.isEmpty()) continue;
+
+                List<AnnouncementEntity> used = new ArrayList<>();
+                JSONArray ids = reply.optJSONArray("source_ids");
+                if (ids != null) {
+                    for (int i = 0; i < ids.length() && used.size() < 3; i++) {
+                        int index = ids.optInt(i, 0) - 1;
+                        if (index >= 0 && index < contextPosts.size()
+                                && !used.contains(contextPosts.get(index))) {
+                            used.add(contextPosts.get(index));
                         }
-                        return new LocalNanoAIEngine.NanoAIResult(
-                                liveAnswer,
-                                detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN ? detectedIntent : LocalNanoAIEngine.Intent.GENERAL,
-                                0.95f,
-                                cachedSource,
-                                false // isOfflineAnswer = false indicates live cloud response
-                        );
                     }
-                } catch (Exception e) {
-                    Log.w(TAG, "Gemini call failed for model [" + modelName + "]: " + e.getMessage());
                 }
+
+                return new LocalNanoAIEngine.NanoAIResult(
+                        answer,
+                        LocalNanoAIEngine.Intent.GENERAL,
+                        0.95f,
+                        false,
+                        used
+                );
+            } catch (Exception e) {
+                Log.w(TAG, "Gemini call failed for " + modelName + ": " + e.getMessage());
             }
         }
-
-        // If cloud models are unavailable or API key missing, return null to transfer to local engine
         return null;
     }
 
-    /**
-     * Executes HTTP POST to Google Gemini API using HttpURLConnection.
-     */
-    private String callGeminiLive(String modelName, String userQuery, AnnouncementEntity cachedSource, String apiKey) throws Exception {
-        URL url = new URL(GEMINI_BASE_URL + modelName + ":generateContent?key=" + apiKey);
+    /** The newest posts plus the ones that share the most words with the question. */
+    private List<AnnouncementEntity> pickContextPosts(String query, List<AnnouncementEntity> posts) {
+        if (posts == null || posts.isEmpty()) return Collections.emptyList();
+
+        List<AnnouncementEntity> byNewest = new ArrayList<>(posts);
+        byNewest.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+
+        Set<String> words = new HashSet<>();
+        for (String w : query.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
+            if (w.length() > 2) words.add(w);
+        }
+
+        List<AnnouncementEntity> byMatch = new ArrayList<>(byNewest);
+        List<Integer> scores = new ArrayList<>();
+        for (AnnouncementEntity post : byMatch) scores.add(matchScore(post, words));
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < byMatch.size(); i++) order.add(i);
+        order.sort((a, b) -> Integer.compare(scores.get(b), scores.get(a)));
+
+        List<AnnouncementEntity> picked = new ArrayList<>();
+        for (int i = 0; i < byNewest.size() && picked.size() < ALWAYS_INCLUDE_NEWEST; i++) {
+            picked.add(byNewest.get(i));
+        }
+        for (int i : order) {
+            if (picked.size() >= MAX_CONTEXT_POSTS || scores.get(i) == 0) break;
+            AnnouncementEntity post = byMatch.get(i);
+            if (!picked.contains(post)) picked.add(post);
+        }
+        picked.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+        return picked;
+    }
+
+    private static int matchScore(AnnouncementEntity post, Set<String> words) {
+        if (words.isEmpty()) return 0;
+        String text = (safe(post.message) + " " + safe(post.keyTakeaway) + " "
+                + safe(post.categories) + " " + safe(post.pageName)).toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String w : words) {
+            if (text.contains(w)) score++;
+        }
+        return score;
+    }
+
+    private JSONObject callGemini(String modelName, String userQuery,
+                                  List<AnnouncementEntity> posts,
+                                  List<LocalNanoAIEngine.Turn> history,
+                                  String apiKey) throws Exception {
+        URL url = new URL(GEMINI_BASE_URL + modelName + ":generateContent");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setRequestProperty("x-goog-api-key", apiKey);
         conn.setConnectTimeout(6000);
-        conn.setReadTimeout(9000);
+        conn.setReadTimeout(15000);
         conn.setDoOutput(true);
 
-        // Grounding context if a source post exists
-        String contextSnippet = "";
-        if (cachedSource != null && cachedSource.message != null && !cachedSource.message.trim().isEmpty()) {
-            contextSnippet = "\n\nRelevant LSPU-SPCC announcement on file from " + cachedSource.pageName + ":\n\"" + cachedSource.message.trim() + "\"";
-        }
-
-        String prompt = "You are Kaleo Cloud AI, the primary intelligent assistant for students at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
-                "Answer the student's question helpfully, accurately, and concisely in English or Taglish.\n\n" +
-                "Evaluation Rule:\n" +
-                "If the student is specifically asking about today's real-time class suspension, latest official campus announcements, or specific Facebook posts, and no relevant announcement is provided in the context below, respond with exactly: [TRANSFER_TO_LOCAL]\n" +
-                contextSnippet +
-                "\n\nStudent Question: " + userQuery.trim();
-
-        // Build Gemini Request Payload
         JSONObject root = new JSONObject();
+        root.put("systemInstruction", new JSONObject()
+                .put("parts", new JSONArray().put(new JSONObject()
+                        .put("text", buildInstructions(posts)))));
+
         JSONArray contents = new JSONArray();
-        JSONObject messageObj = new JSONObject();
-        JSONArray parts = new JSONArray();
-        JSONObject textPart = new JSONObject();
-        textPart.put("text", prompt);
-        parts.put(textPart);
-        messageObj.put("parts", parts);
-        contents.put(messageObj);
+        if (history != null) {
+            int start = Math.max(0, history.size() - MAX_HISTORY_TURNS);
+            for (int i = start; i < history.size(); i++) {
+                LocalNanoAIEngine.Turn turn = history.get(i);
+                if (turn.text == null || turn.text.trim().isEmpty()) continue;
+                contents.put(new JSONObject()
+                        .put("role", turn.fromUser ? "user" : "model")
+                        .put("parts", new JSONArray().put(new JSONObject().put("text", turn.text.trim()))));
+            }
+        }
+        contents.put(new JSONObject()
+                .put("role", "user")
+                .put("parts", new JSONArray().put(new JSONObject().put("text", userQuery.trim()))));
         root.put("contents", contents);
+
+        JSONObject schema = new JSONObject()
+                .put("type", "object")
+                .put("properties", new JSONObject()
+                        .put("answer", new JSONObject().put("type", "string"))
+                        .put("source_ids", new JSONObject()
+                                .put("type", "array")
+                                .put("items", new JSONObject().put("type", "integer"))))
+                .put("required", new JSONArray().put("answer").put("source_ids"));
+
+        root.put("generationConfig", new JSONObject()
+                .put("temperature", 0.3)
+                .put("responseMimeType", "application/json")
+                .put("responseJsonSchema", schema));
 
         byte[] requestBody = root.toString().getBytes(StandardCharsets.UTF_8);
         try (OutputStream os = conn.getOutputStream()) {
             os.write(requestBody);
-            os.flush();
         }
 
         int statusCode = conn.getResponseCode();
-        if (statusCode >= 200 && statusCode < 300) {
-            String responseStr = readStream(conn.getInputStream());
-            JSONObject responseJson = new JSONObject(responseStr);
-            JSONArray candidates = responseJson.optJSONArray("candidates");
-            if (candidates != null && candidates.length() > 0) {
-                JSONObject candidate = candidates.getJSONObject(0);
-                JSONObject contentObj = candidate.optJSONObject("content");
-                if (contentObj != null) {
-                    JSONArray candidateParts = contentObj.optJSONArray("parts");
-                    if (candidateParts != null && candidateParts.length() > 0) {
-                        StringBuilder textBuilder = new StringBuilder();
-                        for (int p = 0; p < candidateParts.length(); p++) {
-                            JSONObject part = candidateParts.optJSONObject(p);
-                            if (part != null) {
-                                if (part.optBoolean("thought", false)) continue;
-                                String text = part.optString("text", "");
-                                if (!text.isEmpty()) {
-                                    textBuilder.append(text);
-                                }
-                            }
-                        }
-                        if (textBuilder.length() > 0) {
-                            return textBuilder.toString().trim();
-                        }
-                        // Fallback if all parts were filtered
-                        for (int p = 0; p < candidateParts.length(); p++) {
-                            JSONObject part = candidateParts.optJSONObject(p);
-                            if (part != null) {
-                                String text = part.optString("text", "");
-                                if (!text.trim().isEmpty()) {
-                                    return text.trim();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            String errDetail = readStream(conn.getErrorStream());
-            Log.w(TAG, "Gemini API [" + modelName + "] returned HTTP " + statusCode + ": " + errDetail);
+        if (statusCode < 200 || statusCode >= 300) {
+            Log.w(TAG, "Gemini " + modelName + " returned HTTP " + statusCode + ": "
+                    + readStream(conn.getErrorStream()));
+            return null;
         }
 
-        return null;
+        JSONObject response = new JSONObject(readStream(conn.getInputStream()));
+        JSONArray candidates = response.optJSONArray("candidates");
+        if (candidates == null || candidates.length() == 0) return null;
+        JSONObject content = candidates.getJSONObject(0).optJSONObject("content");
+        if (content == null) return null;
+        JSONArray parts = content.optJSONArray("parts");
+        if (parts == null) return null;
+
+        StringBuilder text = new StringBuilder();
+        for (int p = 0; p < parts.length(); p++) {
+            JSONObject part = parts.optJSONObject(p);
+            if (part != null && !part.optBoolean("thought", false)) {
+                text.append(part.optString("text", ""));
+            }
+        }
+        if (text.length() == 0) return null;
+        return new JSONObject(text.toString());
+    }
+
+    private String buildInstructions(List<AnnouncementEntity> posts) {
+        SimpleDateFormat today = new SimpleDateFormat("EEEE, MMMM d, yyyy h:mm a", Locale.US);
+        today.setTimeZone(PH_TIME);
+        SimpleDateFormat posted = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US);
+        posted.setTimeZone(PH_TIME);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are Kaleo, the campus assistant in a student app for Laguna State Polytechnic ")
+                .append("University - San Pablo City Campus (LSPU-SPCC) in the Philippines.\n")
+                .append("Right now it is ").append(today.format(new Date())).append(" (Philippine time).\n\n")
+                .append("How to answer:\n")
+                .append("- Reply in the student's language: English, Filipino or Taglish.\n")
+                .append("- Be short and friendly, like a helpful upperclassman: 1 to 4 sentences, ")
+                .append("or a few bullet points when listing things. You may use **bold** for key facts.\n")
+                .append("- For anything about LSPU (classes, suspensions, exams, scholarships, events, ")
+                .append("rules, offices), use ONLY the announcements below. Mention the page and date ")
+                .append("when it helps. Never invent dates, deadlines, requirements, offices or policies.\n")
+                .append("- If the announcements don't cover the question, say you couldn't find it in ")
+                .append("the announcements on the app, and suggest checking the official LSPU page or ")
+                .append("the right office. For class suspensions, say no suspension has been posted ")
+                .append("in the announcements you have, and to check LSPU's official page for the latest.\n")
+                .append("- Small talk and general questions (greetings, time, study tips, general ")
+                .append("knowledge) can be answered normally.\n")
+                .append("- Don't say which AI model or company powers you. You are Kaleo.\n")
+                .append("- source_ids: the numbers of the announcements you actually used, or an empty list.\n\n");
+
+        if (posts.isEmpty()) {
+            sb.append("There are no announcements saved on the app yet.\n");
+            return sb.toString();
+        }
+
+        sb.append("Announcements saved on the app (newest first):\n");
+        for (int i = 0; i < posts.size(); i++) {
+            AnnouncementEntity p = posts.get(i);
+            sb.append("\n[").append(i + 1).append("] ")
+                    .append(safe(p.pageName).isEmpty() ? "Unknown page" : p.pageName)
+                    .append(", posted ").append(posted.format(new Date(p.createdAt)));
+            if (!safe(p.categories).isEmpty()) sb.append(" | categories: ").append(p.categories);
+            if (!safe(p.urgency).isEmpty()) sb.append(" | urgency: ").append(p.urgency);
+            sb.append("\n");
+            if (!safe(p.keyTakeaway).isEmpty()) sb.append("Summary: ").append(p.keyTakeaway.trim()).append("\n");
+            if (!safe(p.importantDates).isEmpty() && !p.importantDates.trim().equals("[]")) {
+                sb.append("Dates: ").append(p.importantDates.trim()).append("\n");
+            }
+            String text = safe(p.message).trim();
+            if (text.length() > MAX_POST_CHARS) text = text.substring(0, MAX_POST_CHARS) + "...";
+            if (!text.isEmpty()) sb.append("Text: ").append(text).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 
     private static String readStream(InputStream is) {
@@ -228,7 +319,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                sb.append(line);
+                sb.append(line).append('\n');
             }
             return sb.toString();
         } catch (Exception e) {

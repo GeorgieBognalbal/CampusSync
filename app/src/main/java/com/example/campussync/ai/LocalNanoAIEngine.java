@@ -2,12 +2,17 @@ package com.example.campussync.ai;
 
 import com.example.campussync.data.local.AnnouncementEntity;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 /**
@@ -36,6 +41,8 @@ public class LocalNanoAIEngine {
         GREETING,    // Conversational greetings (hi, hello, magandang umaga, kamusta)
         GRATITUDE,   // Thanks, salamat, appreciation
         IDENTITY,    // Bot identity, capabilities, hackathon background
+        DATE_TIME,   // Current time, today's date, what day tomorrow is
+        LATEST,      // Newest announcements
         GENERAL,     // General help, overview
         UNKNOWN      // Fallback when no match is found
     }
@@ -45,17 +52,39 @@ public class LocalNanoAIEngine {
         public final Intent detectedIntent;
         public final float confidence;
         public final AnnouncementEntity primarySource;
+        public final List<AnnouncementEntity> sources;
         public final boolean isOfflineAnswer;
 
-        public NanoAIResult(String answer, Intent intent, float confidence, 
+        public NanoAIResult(String answer, Intent intent, float confidence,
                             AnnouncementEntity source, boolean isOffline) {
+            this(answer, intent, confidence, isOffline,
+                    source == null ? Collections.<AnnouncementEntity>emptyList() : Collections.singletonList(source));
+        }
+
+        public NanoAIResult(String answer, Intent intent, float confidence,
+                            boolean isOffline, List<AnnouncementEntity> sources) {
             this.answer = answer;
             this.detectedIntent = intent;
             this.confidence = confidence;
-            this.primarySource = source;
+            this.sources = sources == null ? new ArrayList<>() : new ArrayList<>(sources);
+            this.primarySource = this.sources.isEmpty() ? null : this.sources.get(0);
             this.isOfflineAnswer = isOffline;
         }
     }
+
+    /** One earlier message in the chat, used so online answers can follow the conversation. */
+    public static class Turn {
+        public final boolean fromUser;
+        public final String text;
+
+        public Turn(boolean fromUser, String text) {
+            this.fromUser = fromUser;
+            this.text = text;
+        }
+    }
+
+    private static final TimeZone PH_TIME = TimeZone.getTimeZone("Asia/Manila");
+    private static final long DAY_MS = 24L * 60 * 60 * 1000;
 
     // ==========================================
     // BILINGUAL INTENT & KEYWORD DICTIONARIES
@@ -159,11 +188,21 @@ public class LocalNanoAIEngine {
 
         if (detectedIntent == Intent.IDENTITY) {
             return new NanoAIResult(
-                    "I am **Kaleo Local Nano AI** 🎓\n\n" +
-                    "Built for **Hack4Success 2026** (Track: Student Around Services, LSPU-SPCC).\n" +
-                    "I run a lightweight Neuro-Symbolic RAG pipeline **100% locally on your phone** (<15ms latency, <20MB RAM, zero data cost) to give you instant, zero-hallucination answers from official campus announcements and the complete LSPU-SPCC Student Knowledge Base!",
+                    "I'm **Kaleo**, the campus assistant of this app 🎓\n\n" +
+                    "I answer questions using the official LSPU-SPCC announcements saved on your phone. " +
+                    "When you're online I can understand more kinds of questions; when you're offline I still " +
+                    "answer common ones and search your saved announcements.",
                     Intent.IDENTITY, 0.99f, null, true
             );
+        }
+
+        if (detectedIntent == Intent.DATE_TIME) {
+            return new NanoAIResult(buildDateTimeResponse(normalizedQuery), Intent.DATE_TIME, 0.99f,
+                    (AnnouncementEntity) null, true);
+        }
+
+        if (detectedIntent == Intent.LATEST) {
+            return latestAnnouncements(cachedPosts);
         }
 
         if (detectedIntent == Intent.GENERAL) {
@@ -183,15 +222,15 @@ public class LocalNanoAIEngine {
         CampusKnowledgeBase.KnowledgeEntry kbEntry = CampusKnowledgeBase.findBestMatch(normalizedQuery, detectedIntent);
         boolean isStaticGuidanceQuery = (detectedIntent == Intent.CAMPUS_INFO) ||
                 normalizedQuery.contains("grading") || normalizedQuery.contains("passing") ||
-                normalizedQuery.contains("inc") || normalizedQuery.contains("deans list") ||
+                hasWord(normalizedQuery, "inc") || normalizedQuery.contains("deans list") ||
                 normalizedQuery.contains("dean's list") || normalizedQuery.contains("honor") ||
-                normalizedQuery.contains("tor") || normalizedQuery.contains("cor") ||
+                hasWord(normalizedQuery, "tor") || hasWord(normalizedQuery, "cor") ||
                 normalizedQuery.contains("unifast") || normalizedQuery.contains("good moral") ||
                 normalizedQuery.contains("saan") || normalizedQuery.contains("hours") ||
                 normalizedQuery.contains("oras") || normalizedQuery.contains("president") ||
                 normalizedQuery.contains("presidente") || normalizedQuery.contains("course") ||
                 normalizedQuery.contains("program") || normalizedQuery.contains("kurso") ||
-                normalizedQuery.contains("tdp") || normalizedQuery.contains("tulong dunong") ||
+                hasWord(normalizedQuery, "tdp") || normalizedQuery.contains("tulong dunong") ||
                 normalizedQuery.contains("requirement") || normalizedQuery.contains("policy") ||
                 normalizedQuery.contains("guideline") || normalizedQuery.contains("protocol") ||
                 normalizedQuery.contains("hotline") || normalizedQuery.contains("emergency");
@@ -233,7 +272,8 @@ public class LocalNanoAIEngine {
             if (detectedIntent == Intent.SUSPENSION) {
                 boolean hasSuspensionContent = containsSuspensionMarkers(bestPost.message) ||
                         (bestPost.categories != null && bestPost.categories.contains("Suspension"));
-                if (hasSuspensionContent) {
+                boolean isRecent = System.currentTimeMillis() - bestPost.createdAt < 3 * DAY_MS;
+                if (hasSuspensionContent && isRecent) {
                     String answer = synthesizeAnswer(detectedIntent, bestPost, normalizedQuery);
                     return new NanoAIResult(answer, detectedIntent, Math.min(0.99f, bestScore), bestPost, true);
                 }
@@ -260,7 +300,8 @@ public class LocalNanoAIEngine {
         // --- 5. Clean, Reassuring Suspension Default (Never quote unrelated posts!) ---
         if (detectedIntent == Intent.SUSPENSION) {
             return new NanoAIResult(
-                    "✅ **Classes are normal as of today.**\n\nNo active class suspension announcements have been posted on your saved feed. Continue monitoring official campus channels for weather advisories.",
+                    "No class suspension has been announced in the posts saved on your phone. " +
+                    "Pull down on the Feed to check for new updates, or see the LSPU Official page for the latest advisories.",
                     Intent.SUSPENSION, 0.88f, null, true
             );
         }
@@ -271,45 +312,29 @@ public class LocalNanoAIEngine {
 
     public interface CloudFallbackProvider {
         boolean isOnline();
-        NanoAIResult queryCloudFallback(String userQuery, Intent detectedIntent, AnnouncementEntity cachedSource);
+        NanoAIResult queryCloudFallback(String userQuery, List<AnnouncementEntity> posts, List<Turn> history);
     }
 
     /**
-     * Executes Cloud-First Hybrid Intelligence with Local Delegation & Fallback.
-     * Defaults to Cloud AI first when device is online.
-     * If the query requires on-device local announcements or Cloud AI delegates to local,
-     * it seamlessly transfers the query to the on-device local engine.
+     * Online: greetings, thanks and date/time stay local (instant); everything else goes to the
+     * cloud with the saved announcements as context.
+     * Offline, or if the cloud call fails: the local engine answers.
      */
     public NanoAIResult processHybridQuery(String userQuery,
                                           List<AnnouncementEntity> cachedPosts,
-                                          CloudFallbackProvider cloudProvider) {
-        // 1. Defaults to Cloud AI first when device is online
-        if (cloudProvider != null && cloudProvider.isOnline()) {
-            NanoAIResult localCandidate = processQuery(userQuery, cachedPosts);
-            AnnouncementEntity sourceToPass = (localCandidate != null && localCandidate.primarySource != null)
-                    ? localCandidate.primarySource : null;
-            Intent intentToPass = localCandidate != null ? localCandidate.detectedIntent : Intent.GENERAL;
+                                          CloudFallbackProvider cloudProvider,
+                                          List<Turn> history) {
+        NanoAIResult local = processQuery(userQuery, cachedPosts);
 
-            NanoAIResult cloudResult = cloudProvider.queryCloudFallback(
-                    userQuery,
-                    intentToPass,
-                    sourceToPass
-            );
-
-            // If Cloud AI resolved the query directly (without delegating), return Cloud AI result
-            if (cloudResult != null && cloudResult.answer != null &&
-                    !cloudResult.answer.contains("[TRANSFER_TO_LOCAL]")) {
-                return cloudResult;
-            }
-
-            // Cloud AI requested transfer to local engine or cloud call was delegated
-            if (localCandidate != null) {
-                return localCandidate;
-            }
+        boolean simpleChitchat = local.detectedIntent == Intent.GREETING
+                || local.detectedIntent == Intent.GRATITUDE
+                || local.detectedIntent == Intent.DATE_TIME;
+        if (simpleChitchat || cloudProvider == null || !cloudProvider.isOnline()) {
+            return local;
         }
 
-        // 2. When device is offline or Cloud AI is unavailable, transfer query to local engine
-        return processQuery(userQuery, cachedPosts);
+        NanoAIResult cloud = cloudProvider.queryCloudFallback(userQuery, cachedPosts, history);
+        return cloud != null ? cloud : local;
     }
 
     /**
@@ -320,18 +345,33 @@ public class LocalNanoAIEngine {
         if (query == null) return Intent.UNKNOWN;
         String q = query.toLowerCase(Locale.ROOT).trim();
 
-        // Conversational short-circuits
-        if (q.equals("hi") || q.equals("hello") || q.equals("hey") || q.startsWith("hi ") ||
-                q.contains("magandang umaga") || q.contains("magandang hapon") ||
-                q.contains("magandang gabi") || q.contains("good morning") ||
+        q = q.replaceAll("[?!.,]+$", "").trim();
+        int wordCount = q.isEmpty() ? 0 : q.split("\\s+").length;
+
+        // Greetings and thanks only when that's the whole message ("hi, may pasok ba?" is a question)
+        if (wordCount <= 4 && (hasWord(q, "hi") || hasWord(q, "hello") || hasWord(q, "hey") ||
+                hasWord(q, "musta") || q.contains("magandang umaga") || q.contains("magandang hapon") ||
+                q.contains("magandang gabi") || q.contains("magandang araw") || q.contains("good morning") ||
                 q.contains("good afternoon") || q.contains("good evening") ||
-                q.contains("kamusta") || q.contains("kumusta") || q.equals("musta")) {
+                q.contains("kamusta") || q.contains("kumusta"))) {
             return Intent.GREETING;
         }
 
-        if (q.contains("salamat") || q.contains("thank you") || q.contains("thanks") ||
-                q.equals("ty") || q.equals("thx") || q.contains("appreciate")) {
+        if (wordCount <= 5 && (q.contains("salamat") || q.contains("thank you") || q.contains("thanks") ||
+                hasWord(q, "ty") || hasWord(q, "thx") || q.contains("appreciate"))) {
             return Intent.GRATITUDE;
+        }
+
+        if (q.contains("anong oras") || q.contains("what time") || q.contains("anong araw") ||
+                q.contains("what day") || q.contains("anong petsa") || q.contains("what date") ||
+                q.contains("date today") || q.contains("petsa ngayon") || q.contains("today's date")) {
+            return Intent.DATE_TIME;
+        }
+
+        if (q.contains("latest") || hasWord(q, "bago") || q.contains("updates") ||
+                q.contains("new announcement") || q.contains("recent") || q.contains("balita") ||
+                q.equals("announcements") || q.contains("any news") || q.contains("ano meron")) {
+            return Intent.LATEST;
         }
 
         if (q.contains("sino ka") || q.contains("who are you") || q.contains("ano pangalan mo") ||
@@ -343,6 +383,7 @@ public class LocalNanoAIEngine {
         // Suspension patterns
         if (q.contains("may pasok") || q.contains("walang pasok") || q.contains("walang klase") ||
                 q.contains("may klase") || q.contains("suspindido") || q.contains("suspension") ||
+                q.contains("suspended") || q.contains("no class") || q.contains("pasok") ||
                 q.contains("bagyo") || q.contains("typhoon") || q.contains("is there class") ||
                 q.contains("class suspension") || q.contains("signal #") || q.contains("signal no") ||
                 q.contains("signal 1") || q.contains("signal 2")) {
@@ -364,16 +405,16 @@ public class LocalNanoAIEngine {
         // Academics & Grading
         if (q.contains("midterm") || q.contains("exam") || q.contains("finals") ||
                 q.contains("permit") || q.contains("grade") || q.contains("grading") ||
-                q.contains("passing") || q.contains("singko") || q.contains("tres") ||
-                q.contains("inc") || q.contains("incomplete") || q.contains("deans list") ||
-                q.contains("dean's list") || q.contains("latin honor") || q.contains("cor") ||
-                q.contains("tor") || q.contains("transcript") || q.contains("clearance") ||
+                q.contains("passing") || q.contains("singko") || hasWord(q, "tres") ||
+                hasWord(q, "inc") || q.contains("incomplete") || q.contains("deans list") ||
+                q.contains("dean's list") || q.contains("latin honor") || hasWord(q, "cor") ||
+                hasWord(q, "tor") || q.contains("transcript") || q.contains("clearance") ||
                 q.contains("shifting") || q.contains("dropping")) {
             return Intent.ACADEMICS;
         }
 
         // Scholarship
-        if (q.contains("scholarship") || q.contains("tdp") || q.contains("ched") ||
+        if (q.contains("scholarship") || hasWord(q, "tdp") || hasWord(q, "ched") ||
                 q.contains("unifast") || q.contains("allowance") || q.contains("stipend") ||
                 q.contains("grant") || q.contains("free tuition") || q.contains("indigency")) {
             return Intent.SCHOLARSHIP;
@@ -500,24 +541,25 @@ public class LocalNanoAIEngine {
             snippet = extractBestSentence(source.message, query, intent);
         }
         snippet = cleanPrefixes(snippet);
+        String page = source.pageName + ", " + formatPostDate(source.createdAt);
 
         if (intent == Intent.SUSPENSION) {
-            return "⚠️ **Class Suspension Advisory**\n\nPer official advisory from **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nPlease monitor official channels for updates and stay safe. Read official post ↗";
+            return "⚠️ **Class Suspension Advisory**\n\nPer official advisory from **" + page + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nPlease monitor official channels for updates and stay safe. Read official post ↗";
         }
 
         if (intent == Intent.SCHOLARSHIP) {
-            return "🎓 **Scholarship & Financial Aid Notice**\n\nFrom **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n📌 *Make sure all requirements are submitted before the deadline.* Read official post ↗";
+            return "🎓 **Scholarship & Financial Aid Notice**\n\nFrom **" + page + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n📌 *Make sure all requirements are submitted before the deadline.* Read official post ↗";
         }
 
         if (intent == Intent.ACADEMICS) {
-            return "📚 **Academic Advisory**\n\nAccording to **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n✏️ *Double-check your schedule with your college or adviser.* Read official post ↗";
+            return "📚 **Academic Advisory**\n\nAccording to **" + page + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n✏️ *Double-check your schedule with your college or adviser.* Read official post ↗";
         }
 
         if (intent == Intent.EVENTS) {
-            return "📢 **Campus Activity & Event**\n\nAnnounced by **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n🤝 *Check with organizers for guidelines.* Read official post ↗";
+            return "📢 **Campus Activity & Event**\n\nAnnounced by **" + page + "**:\n\"" + ensurePeriod(snippet) + "\"\n\n🤝 *Check with organizers for guidelines.* Read official post ↗";
         }
 
-        return "According to **" + source.pageName + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nRead official post ↗";
+        return "According to **" + page + "**:\n\"" + ensurePeriod(snippet) + "\"\n\nRead official post ↗";
     }
 
     private String extractBestSentence(String message, String query, Intent intent) {
@@ -584,14 +626,70 @@ public class LocalNanoAIEngine {
 
     private NanoAIResult fallbackResult(Intent intent, String query) {
         return new NanoAIResult(
-                "Hindi ko mahanap ang eksaktong announcement ukol diyan sa offline cache.\n\n" +
-                "💡 **Subukang itanong:**\n" +
+                "I couldn't find that in the announcements saved on your phone. " +
+                "Connect to the internet for more answers, or try asking:\n" +
                 "• *\"May pasok ba bukas?\"* (Suspension checks)\n" +
                 "• *\"Kailan deadline ng scholarship?\"* (TDP/CHED updates)\n" +
                 "• *\"Midterm exam schedule\"* (Academic calendar)\n" +
                 "• *\"Office hours ng registrar / OSAS\"* (Campus navigation)",
                 intent, 0.20f, null, true
         );
+    }
+
+    private String buildDateTimeResponse(String query) {
+        Calendar now = Calendar.getInstance(PH_TIME);
+        SimpleDateFormat time = new SimpleDateFormat("h:mm a", Locale.US);
+        SimpleDateFormat date = new SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.US);
+        time.setTimeZone(PH_TIME);
+        date.setTimeZone(PH_TIME);
+
+        if (query.contains("bukas") || query.contains("tomorrow")) {
+            Calendar tomorrow = (Calendar) now.clone();
+            tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+            return "Tomorrow is **" + date.format(tomorrow.getTime()) + "**.";
+        }
+        if (query.contains("oras") || query.contains("time")) {
+            return "It's **" + time.format(now.getTime()) + "** (Philippine time), " + date.format(now.getTime()) + ".";
+        }
+        return "Today is **" + date.format(now.getTime()) + "**.";
+    }
+
+    private NanoAIResult latestAnnouncements(List<AnnouncementEntity> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return new NanoAIResult(
+                    "There are no announcements saved on your phone yet. Pull down on the Feed to sync.",
+                    Intent.LATEST, 0.9f, (AnnouncementEntity) null, true);
+        }
+        List<AnnouncementEntity> newest = new ArrayList<>(posts);
+        newest.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+        newest = new ArrayList<>(newest.subList(0, Math.min(3, newest.size())));
+
+        StringBuilder sb = new StringBuilder("Here are the latest announcements:\n");
+        for (AnnouncementEntity p : newest) {
+            String summary = p.keyTakeaway != null && !p.keyTakeaway.trim().isEmpty()
+                    ? p.keyTakeaway.trim()
+                    : shorten(cleanPrefixes(extractBestSentence(p.message, "", Intent.GENERAL)), 140);
+            if (summary.isEmpty()) summary = "Image post, open it to see the details";
+            sb.append("\n• **").append(p.pageName).append("** (").append(formatPostDate(p.createdAt))
+                    .append("): ").append(ensurePeriod(summary));
+        }
+        return new NanoAIResult(sb.toString(), Intent.LATEST, 0.9f, true, newest);
+    }
+
+    private static String formatPostDate(long createdAt) {
+        SimpleDateFormat f = new SimpleDateFormat("MMM d", Locale.US);
+        f.setTimeZone(PH_TIME);
+        return f.format(new Date(createdAt));
+    }
+
+    private static String shorten(String s, int max) {
+        if (s == null) return "";
+        s = s.trim();
+        return s.length() <= max ? s : s.substring(0, max).trim() + "...";
+    }
+
+    private static boolean hasWord(String text, String word) {
+        return Pattern.compile("\\b" + Pattern.quote(word) + "\\b").matcher(text).find();
     }
 
     private static boolean matchesWord(String text, String word) {

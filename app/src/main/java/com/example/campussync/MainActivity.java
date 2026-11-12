@@ -1004,6 +1004,14 @@ public class MainActivity extends Activity {
 
         hideSuggestions();
 
+        // Earlier messages (skipping the welcome message), copied here because the list
+        // keeps changing on the UI thread while the answer is built in the background
+        List<LocalNanoAIEngine.Turn> history = new ArrayList<>();
+        for (int i = 1; i < chatHistory.size(); i++) {
+            ChatMessage m = chatHistory.get(i);
+            if (!m.isThinking()) history.add(new LocalNanoAIEngine.Turn(m.isUser(), m.getText()));
+        }
+
         ChatMessage userMsg = new ChatMessage(question, ChatMessage.Sender.USER);
         chatHistory.add(userMsg);
         appendIfVisible(userMsg);
@@ -1012,10 +1020,11 @@ public class MainActivity extends Activity {
         chatHistory.add(thinking);
         appendIfVisible(thinking);
 
+        final long askedAt = System.currentTimeMillis();
         chatExecutor.execute(() -> {
             ChatMessage built;
             try {
-                built = buildAnswer(question);
+                built = buildAnswer(question, history);
             } catch (Exception e) {
                 // Without this, one crash left botBusy = true and the chat ignored
                 // every message after it until the app was restarted.
@@ -1042,7 +1051,7 @@ public class MainActivity extends Activity {
                     scrollChatToBottom();
                 }
                 botBusy = false;
-            }, 1200);
+            }, Math.max(0, 800 - (System.currentTimeMillis() - askedAt)));
         });
     }
 
@@ -1063,28 +1072,22 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Runs on the background executor: evaluates query using LocalNanoAIEngine Edge-First RAG with Cloud Fallback. */
-    private ChatMessage buildAnswer(String question) {
+    /** Runs on the background executor: online answers come from the cloud, offline ones from the local engine. */
+    private ChatMessage buildAnswer(String question, List<LocalNanoAIEngine.Turn> history) {
         List<AnnouncementEntity> allPosts = visibleAnnouncements(announcementRepository.getAll());
-        long start = System.nanoTime();
         LocalNanoAIEngine.NanoAIResult result =
-                nanoAIEngine.processHybridQuery(question, allPosts, cloudAdapter);
-        long latencyMs = (System.nanoTime() - start) / 1000000;
+                nanoAIEngine.processHybridQuery(question, allPosts, cloudAdapter, history);
 
         List<ChatMessage.Source> sources = new ArrayList<>();
-        if (result.primarySource != null) {
-            sources.add(new ChatMessage.Source(
-                    result.primarySource.pageName,
-                    result.primarySource.message,
-                    result.primarySource.permalink
-            ));
+        for (AnnouncementEntity post : result.sources) {
+            sources.add(new ChatMessage.Source(post.pageName, post.message, post.permalink));
         }
 
-        String tag = result.isOfflineAnswer
-                ? "⚡ [" + latencyMs + "ms • Local Nano AI]\n"
-                : "☁️ [" + latencyMs + "ms • Cloud AI]\n";
-
-        return new ChatMessage(tag + result.answer, ChatMessage.Sender.BOT, sources);
+        String text = result.answer;
+        if (result.isOfflineAnswer && !cloudAdapter.isOnline()) {
+            text = "*Offline answer*\n" + text;
+        }
+        return new ChatMessage(text, ChatMessage.Sender.BOT, sources);
     }
 
     /** Maps common Taglish questions to keywords the local search understands. */

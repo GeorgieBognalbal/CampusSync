@@ -464,6 +464,8 @@ public class MainActivity extends Activity {
         final int fgRes;
         final int bgRes;
         final String[] keywords;
+        /** One pre-built whole-word pattern per category (built once, not per post). */
+        final Pattern matcher;
 
         Category(String chipLabel, String tagLabel, int fgRes, int bgRes, String... keywords) {
             this.chipLabel = chipLabel;
@@ -471,6 +473,13 @@ public class MainActivity extends Activity {
             this.fgRes = fgRes;
             this.bgRes = bgRes;
             this.keywords = keywords;
+            StringBuilder alt = new StringBuilder();
+            for (String k : keywords) {
+                if (alt.length() > 0) alt.append('|');
+                alt.append(Pattern.quote(k));
+            }
+            this.matcher = keywords.length == 0 ? null
+                    : Pattern.compile("\\b(?:" + alt + ")(?:s|es)?\\b");
         }
 
         static Category of(AnnouncementEntity a) {
@@ -490,11 +499,7 @@ public class MainActivity extends Activity {
         static Category of(String message) {
             String m = message == null ? "" : message.toLowerCase(Locale.ROOT);
             for (Category c : new Category[]{SUSPENSION, EXAM, SCHOLARSHIP, EVENT}) {
-                for (String k : c.keywords) {
-                    if (Pattern.compile("\\b" + Pattern.quote(k) + "(s|es)?\\b").matcher(m).find()) {
-                        return c;
-                    }
-                }
+                if (c.matcher != null && c.matcher.matcher(m).find()) return c;
             }
             return GENERAL;
         }
@@ -665,7 +670,10 @@ public class MainActivity extends Activity {
         Set<String> unfollowed = prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>());
         List<AnnouncementEntity> out = new ArrayList<>();
         for (AnnouncementEntity a : input) {
-            if (!unfollowed.contains(a.pageName)) out.add(a);
+            boolean isUnfollowed = unfollowed.contains(a.pageName) ||
+                    ("OCTA".equals(a.pageName) && unfollowed.contains("CCSOCTA")) ||
+                    ("CCSOCTA".equals(a.pageName) && unfollowed.contains("OCTA"));
+            if (!isUnfollowed) out.add(a);
         }
         return out;
     }
@@ -775,27 +783,9 @@ public class MainActivity extends Activity {
 
         outer.addView(message, mp);
 
-        JSONArray imageUrls = safeImageArray(item.imageUrls);
-        if (imageUrls.length() > 0) {
-            HorizontalScrollView galleryScroll = new HorizontalScrollView(this);
-            galleryScroll.setHorizontalScrollBarEnabled(false);
-            LinearLayout gallery = row();
-            for (int imageIndex = 0; imageIndex < imageUrls.length(); imageIndex++) {
-                String imageUrl = imageUrls.optString(imageIndex, "");
-                if (imageUrl.isEmpty()) continue;
-                ImageView image = new ImageView(this);
-                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                image.setBackground(roundDrawable(PALE, 10));
-                LinearLayout.LayoutParams imageParams = params(260, 170);
-                imageParams.rightMargin = dp(8);
-                gallery.addView(image, imageParams);
-                Glide.with(this).load(imageUrl).placeholder(R.drawable.ic_empty)
-                        .error(R.drawable.ic_empty).centerCrop().into(image);
-            }
-            galleryScroll.addView(gallery);
-            LinearLayout.LayoutParams galleryParams = params(-1, 170);
-            galleryParams.bottomMargin = dp(12);
-            outer.addView(galleryScroll, galleryParams);
+        List<String> imageList = imageUrlsOf(item);
+        if (!imageList.isEmpty()) {
+            addPostImages(outer, imageList);
         }
 
         // The AI summary is shown first; the full post opens below it on tap
@@ -850,6 +840,119 @@ public class MainActivity extends Activity {
 
         addView(parent, outer, 0, 12);
         return outer;
+    }
+
+    // ---------- post images ----------
+
+    private List<String> imageUrlsOf(AnnouncementEntity item) {
+        JSONArray arr = safeImageArray(item.imageUrls);
+        List<String> urls = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            String u = arr.optString(i, "").trim();
+            if (!u.isEmpty()) urls.add(u);
+        }
+        return urls;
+    }
+
+    /**
+     * Shows a post's photos WITHOUT cropping them.
+     *
+     * Before, every photo was forced into a 260x170 box with CENTER_CROP, which cut
+     * off the top and bottom of portrait/square posters (often where the dates are).
+     * Now each image keeps its own shape (adjustViewBounds + fitCenter):
+     *  - one photo: full card width, its natural height (capped, tap to see all of it)
+     *  - several:   a swipeable row, each at the same height and its own width
+     * Tapping any photo opens it full screen.
+     */
+    private void addPostImages(LinearLayout outer, List<String> urls) {
+        if (urls.size() == 1) {
+            ImageView image = postImageView(urls.get(0));
+            image.setMaxHeight(dp(440));
+            LinearLayout.LayoutParams lp = params(-1, -2);
+            lp.bottomMargin = dp(12);
+            outer.addView(image, lp);
+            loadPostImage(image, urls.get(0), -1);
+            return;
+        }
+
+        HorizontalScrollView galleryScroll = new HorizontalScrollView(this);
+        galleryScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout gallery = row();
+        for (String url : urls) {
+            ImageView image = postImageView(url);
+            image.setMaxWidth(dp(280));
+            LinearLayout.LayoutParams ip = params(-2, 220);
+            ip.rightMargin = dp(8);
+            gallery.addView(image, ip);
+            loadPostImage(image, url, dp(220));
+        }
+        galleryScroll.addView(gallery);
+        outer.addView(galleryScroll, params(-1, -2));
+
+        TextView count = text("📷 " + urls.size() + " photos · swipe to see all", 11, MUTED, false);
+        LinearLayout.LayoutParams cp = params(-2, -2);
+        cp.topMargin = dp(4);
+        cp.bottomMargin = dp(12);
+        outer.addView(count, cp);
+    }
+
+    private ImageView postImageView(String url) {
+        ImageView image = new ImageView(this);
+        image.setAdjustViewBounds(true);                       // view takes the photo's shape
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);    // never crop
+        image.setBackground(roundDrawable(PALE, 12));
+        image.setClipToOutline(true);                          // actually round the corners
+        image.setContentDescription("Post photo, tap to view full screen");
+        image.setOnClickListener(v -> showFullImage(url));
+        return image;
+    }
+
+    /** @param height fixed row height for galleries, or -1 for a full-width single photo */
+    private void loadPostImage(ImageView image, String url, int height) {
+        // Sized placeholder so the space is reserved while loading (a plain color has
+        // no size, which made gallery items 0 px wide until the photo arrived).
+        GradientDrawable placeholder = new GradientDrawable();
+        placeholder.setColor(PALE);
+        placeholder.setCornerRadius(dp(12));
+        placeholder.setSize(height > 0 ? dp(165) : dp(320), height > 0 ? height : dp(200));
+
+        Glide.with(this)
+                .load(url)
+                .placeholder(placeholder)
+                .error(placeholder)
+                .fitCenter()
+                .into(image);
+    }
+
+    /** Full-screen photo viewer: black background, whole image visible, tap to close. */
+    private void showFullImage(String url) {
+        android.app.Dialog dialog = new android.app.Dialog(this,
+                android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        frame.setBackgroundColor(0xFF000000);
+
+        ImageView full = new ImageView(this);
+        full.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        full.setContentDescription("Full screen photo");
+        frame.addView(full, new android.widget.FrameLayout.LayoutParams(-1, -1));
+
+        TextView close = text("✕", 22, WHITE, true);
+        close.setPadding(dp(20), dp(16), dp(20), dp(16));
+        close.setContentDescription("Close");
+        android.widget.FrameLayout.LayoutParams clp =
+                new android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        clp.topMargin = dp(24);
+        frame.addView(close, clp);
+
+        View.OnClickListener dismiss = v -> dialog.dismiss();
+        frame.setOnClickListener(dismiss);
+        full.setOnClickListener(dismiss);
+        close.setOnClickListener(dismiss);
+
+        dialog.setContentView(frame);
+        dialog.show();
+        Glide.with(this).load(url).fitCenter().into(full);
     }
 
     private JSONArray safeImageArray(String json) {
@@ -948,13 +1051,17 @@ public class MainActivity extends Activity {
     // =========================
 
     private static final String[] SUGGESTIONS = {
+            "Ano parusa sa cheating sa exam?",
+            "Bawal na damit & wash days",
+            "Rules sa haircut ng lalaki",
             "May pasok ba bukas sa LSPU?",
             "Ano ang official grading system?",
             "Paano maayos ang INC grade?",
+            "Policy sa grade 4.00 conditional",
+            "Maximum residence rule (MRR)",
+            "Latin honors criteria (Cum Laude)",
+            "Mandatory tree planting requirement",
             "TDP scholarship requirements",
-            "Dress code rules & wash days",
-            "Programs offered in CCS",
-            "Emergency hotlines San Pablo",
             "Saan ang OSAS at Registrar?"
     };
 
@@ -1162,6 +1269,13 @@ public class MainActivity extends Activity {
         for (AnnouncementEntity post : result.sources) {
             sources.add(new ChatMessage.Source(post.pageName, post.message, post.permalink));
         }
+        if (sources.isEmpty() && result.handbookCitation != null && !result.handbookCitation.isEmpty()) {
+            sources.add(new ChatMessage.Source(
+                    "LSPU Student Handbook 2021",
+                    result.handbookCitation,
+                    "https://www.lspu.edu.ph"
+            ));
+        }
 
         String text = result.answer;
         if (result.isOfflineAnswer && !cloudAdapter.isOnline()) {
@@ -1305,10 +1419,11 @@ public class MainActivity extends Activity {
         card.setBackgroundResource(R.drawable.source_card_background);
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
 
-        TextView fb = text("f", 14, WHITE, true);
-        fb.setGravity(Gravity.CENTER);
-        fb.setBackground(roundDrawable(0xFF1877F2, 8));
-        card.addView(fb, params(28, 28));
+        boolean isHandbook = s.getPageName() != null && s.getPageName().contains("Handbook");
+        TextView icon = text(isHandbook ? "📖" : "f", isHandbook ? 13 : 14, WHITE, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(roundDrawable(isHandbook ? 0xFF0D3B66 : 0xFF1877F2, 8));
+        card.addView(icon, params(28, 28));
 
         LinearLayout info = column();
         info.setPadding(dp(8), 0, dp(8), 0);
@@ -1349,10 +1464,12 @@ public class MainActivity extends Activity {
     private static final String[][] SOURCES = {
             {"L", "LSPU Official", "University-wide announcements", "https://www.facebook.com/LSPUOfficial"},
             {"O", "SPCC OSAS", "Student affairs and services", "https://www.facebook.com/SPCC.OSAS"},
-            {"C", "CCSOCTA", "College and organization updates", "https://www.facebook.com/CCSOCTA"}
+            {"G", "Guidance Office", "Guidance & counseling services", "https://www.facebook.com/lspuspcc.guidance/"},
+            {"C", "CCSOCTA", "College and organization updates", "https://www.facebook.com/CCSOCTA"},
+            {"T", "TechAd", "Official campus student publication", "https://www.facebook.com/techadspc"}
     };
     private static final int[] SOURCE_TINTS = {
-            R.color.soft_blue, R.color.soft_green, R.color.soft_orange
+            R.color.soft_blue, R.color.soft_green, R.color.soft_orange, R.color.soft_blue, R.color.soft_green
     };
 
     /** Collapsible panel under the chat header listing the pages the assistant reads. */
@@ -1373,11 +1490,39 @@ public class MainActivity extends Activity {
 
         for (int i = 0; i < SOURCES.length; i++) {
             addSourceCard(panel, SOURCES[i][0], SOURCES[i][1], SOURCES[i][2],
-                    SOURCES[i][3], getColor(SOURCE_TINTS[i]), countText);
+                    SOURCES[i][3], getColor(SOURCE_TINTS[i % SOURCE_TINTS.length]), countText);
         }
 
+        // LSPU Student Handbook 2021 Official Grounding Source
+        LinearLayout hbCard = row();
+        hbCard.setGravity(Gravity.CENTER_VERTICAL);
+        hbCard.setBackgroundResource(R.drawable.source_card_background);
+        hbCard.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+        TextView hbIcon = text("📖", 14, WHITE, true);
+        hbIcon.setGravity(Gravity.CENTER);
+        hbIcon.setBackground(roundDrawable(0xFF0D3B66, 8));
+        hbCard.addView(hbIcon, params(32, 32));
+
+        LinearLayout hbInfo = column();
+        hbInfo.setPadding(dp(10), 0, dp(10), 0);
+        hbInfo.addView(text("LSPU Student Handbook 2021", 12, DARK, true));
+        TextView hbSub = text("Doc. No. LSPU-PM-LSH-01 • All Campuses", 11, MUTED, false);
+        hbInfo.addView(hbSub);
+        hbCard.addView(hbInfo, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView hbBadge = text("OFFLINE READY", 9, SUCCESS, true);
+        hbBadge.setBackground(roundDrawable(getColor(R.color.soft_green), 4));
+        hbBadge.setPadding(dp(6), dp(3), dp(6), dp(3));
+        hbCard.addView(hbBadge);
+
+        LinearLayout.LayoutParams hbp = params(-1, -2);
+        hbp.topMargin = dp(8);
+        hbp.bottomMargin = dp(8);
+        panel.addView(hbCard, hbp);
+
         TextView note = text(
-                "Posts are synced from these pages and saved on this device, so answers still work offline.",
+                "Posts are synced from these pages and the LSPU Student Handbook is stored 100% locally on-device, so answers work instantly offline.",
                 11, MUTED, false);
         LinearLayout.LayoutParams np = params(-1, -2);
         np.topMargin = dp(4);
@@ -1393,7 +1538,9 @@ public class MainActivity extends Activity {
 
     private int countUnfollowed(Set<String> unfollowed) {
         int n = 0;
-        for (String[] s : SOURCES) if (unfollowed.contains(s[1])) n++;
+        for (String[] s : SOURCES) {
+            if (unfollowed.contains(s[1]) || ("CCSOCTA".equals(s[1]) && unfollowed.contains("OCTA")) || ("OCTA".equals(s[1]) && unfollowed.contains("CCSOCTA"))) n++;
+        }
         return n;
     }
 
@@ -1444,12 +1591,23 @@ public class MainActivity extends Activity {
         // Follow toggle
         Switch follow = new Switch(this);
         Set<String> unfollowed = prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>());
-        follow.setChecked(!unfollowed.contains(name));
+        boolean isUnfollowed = unfollowed.contains(name) ||
+                ("CCSOCTA".equals(name) && unfollowed.contains("OCTA")) ||
+                ("OCTA".equals(name) && unfollowed.contains("CCSOCTA"));
+        follow.setChecked(!isUnfollowed);
         follow.setContentDescription("Follow " + name);
         follow.setOnCheckedChangeListener((b, checked) -> {
             Set<String> set = new HashSet<>(
                     prefs.getStringSet(KEY_UNFOLLOWED, new HashSet<>()));
-            if (checked) set.remove(name); else set.add(name);
+            if (checked) {
+                set.remove(name);
+                if ("CCSOCTA".equals(name)) set.remove("OCTA");
+                if ("OCTA".equals(name)) set.remove("CCSOCTA");
+            } else {
+                set.add(name);
+                if ("CCSOCTA".equals(name)) set.add("OCTA");
+                if ("OCTA".equals(name)) set.add("CCSOCTA");
+            }
             prefs.edit().putStringSet(KEY_UNFOLLOWED, set).apply();
             countText.setText(followingText(SOURCES.length - countUnfollowed(set)));
             source.animate().alpha(checked ? 1f : 0.6f).setDuration(150);

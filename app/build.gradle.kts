@@ -48,4 +48,6 @@ dependencies {
     implementation("androidx.core:core:1.13.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

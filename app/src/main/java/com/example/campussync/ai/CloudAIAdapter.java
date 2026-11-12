@@ -100,11 +100,14 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         }
 
         List<AnnouncementEntity> contextPosts = pickContextPosts(userQuery, posts);
+        String lowerQuery = userQuery.toLowerCase(Locale.ROOT).trim();
+        CampusKnowledgeBase.KnowledgeEntry handbook = CampusKnowledgeBase.findBestMatch(
+                lowerQuery, new LocalNanoAIEngine().detectIntent(lowerQuery));
         String apiKey = BuildConfig.GEMINI_API_KEY.trim();
 
         for (String modelName : CANDIDATE_MODELS) {
             try {
-                JSONObject reply = callGemini(modelName, userQuery, contextPosts, history, apiKey);
+                JSONObject reply = callGemini(modelName, userQuery, contextPosts, history, handbook, apiKey);
                 if (reply == null) continue;
 
                 String answer = reply.optString("answer", "").trim();
@@ -122,12 +125,15 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                     }
                 }
 
+                String citation = handbook != null && reply.optBoolean("used_handbook", false)
+                        ? handbook.citation : null;
                 return new LocalNanoAIEngine.NanoAIResult(
                         answer,
                         LocalNanoAIEngine.Intent.GENERAL,
                         0.95f,
                         false,
-                        used
+                        used,
+                        citation
                 );
             } catch (Exception e) {
                 Log.w(TAG, "Gemini call failed for " + modelName + ": " + e.getMessage());
@@ -182,6 +188,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
     private JSONObject callGemini(String modelName, String userQuery,
                                   List<AnnouncementEntity> posts,
                                   List<LocalNanoAIEngine.Turn> history,
+                                  CampusKnowledgeBase.KnowledgeEntry handbook,
                                   String apiKey) throws Exception {
         URL url = new URL(GEMINI_BASE_URL + modelName + ":generateContent");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -195,7 +202,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         JSONObject root = new JSONObject();
         root.put("systemInstruction", new JSONObject()
                 .put("parts", new JSONArray().put(new JSONObject()
-                        .put("text", buildInstructions(posts)))));
+                        .put("text", buildInstructions(posts, handbook)))));
 
         JSONArray contents = new JSONArray();
         if (history != null) {
@@ -219,8 +226,9 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                         .put("answer", new JSONObject().put("type", "string"))
                         .put("source_ids", new JSONObject()
                                 .put("type", "array")
-                                .put("items", new JSONObject().put("type", "integer"))))
-                .put("required", new JSONArray().put("answer").put("source_ids"));
+                                .put("items", new JSONObject().put("type", "integer")))
+                        .put("used_handbook", new JSONObject().put("type", "boolean")))
+                .put("required", new JSONArray().put("answer").put("source_ids").put("used_handbook"));
 
         root.put("generationConfig", new JSONObject()
                 .put("temperature", 0.3)
@@ -258,7 +266,7 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
         return new JSONObject(text.toString());
     }
 
-    private String buildInstructions(List<AnnouncementEntity> posts) {
+    private String buildInstructions(List<AnnouncementEntity> posts, CampusKnowledgeBase.KnowledgeEntry handbook) {
         SimpleDateFormat today = new SimpleDateFormat("EEEE, MMMM d, yyyy h:mm a", Locale.US);
         today.setTimeZone(PH_TIME);
         SimpleDateFormat posted = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US);
@@ -273,17 +281,26 @@ public class CloudAIAdapter implements LocalNanoAIEngine.CloudFallbackProvider {
                 .append("- Be short and friendly, like a helpful upperclassman: 1 to 4 sentences, ")
                 .append("or a few bullet points when listing things. You may use **bold** for key facts.\n")
                 .append("- For anything about LSPU (classes, suspensions, exams, scholarships, events, ")
-                .append("rules, offices), use ONLY the announcements below. Mention the page and date ")
+                .append("rules, offices), use ONLY the announcements and handbook reference below. Mention the page and date ")
                 .append("when it helps. Never invent dates, deadlines, requirements, offices or policies.\n")
                 .append("- If the announcements don't cover the question, say you couldn't find it in ")
                 .append("the announcements on the app, and suggest checking the official LSPU page or ")
                 .append("the right office. For class suspensions, say no suspension has been posted ")
                 .append("in the announcements you have, and to check LSPU's official page for the latest.\n")
-                .append("- Small talk and general questions (greetings, time, study tips, general ")
-                .append("knowledge) can be answered normally.\n")
+                .append("- Only help with LSPU-SPCC and student life: classes, academics, rules, offices, ")
+                .append("scholarships, events, announcements, and studying. Greetings, thanks, the time or date, ")
+                .append("and follow-ups about this conversation are fine. For anything unrelated (trivia, ")
+                .append("recipes, coding help, celebrities, politics), politely say you can only help with ")
+                .append("LSPU-SPCC campus matters and suggest a campus question.\n")
                 .append("- Don't say which AI model or company powers you. You are Kaleo.\n")
                 .append("- source_ids: the numbers of the announcements you actually used, or an empty list. ")
-                .append("Never write these numbers or brackets like [1] in the answer; name the page and date instead.\n\n");
+                .append("Never write these numbers or brackets like [1] in the answer; name the page and date instead.\n")
+                .append("- used_handbook: true only if you used the handbook reference.\n\n");
+
+        if (handbook != null) {
+            sb.append("Handbook reference (").append(safe(handbook.citation)).append("), ")
+                    .append(safe(handbook.title)).append(":\n").append(safe(handbook.content)).append("\n\n");
+        }
 
         if (posts.isEmpty()) {
             sb.append("There are no announcements saved on the app yet.\n");

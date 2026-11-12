@@ -2,133 +2,719 @@ package com.example.campussync.ai;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * CampusSense Offline Encyclopedic Knowledge Base
- * 
- * Provides extensive, 100% on-device student life guidance for Laguna State Polytechnic University
- * San Pablo City Campus (LSPU-SPCC).
- * 
+ * LSPU Student Handbook 2021 & Campus Knowledge Base
+ * (Doc. No.: LSPU-PM-LSH-01 • Approved pursuant to Board Resolution No. 111, series of 2021)
+ *
+ * Provides comprehensive, 100% on-device encyclopedic student guidance for
+ * Laguna State Polytechnic University (LSPU-SPCC).
+ *
  * Covers:
- * 1. Academic Grading System, Latin Honors & Dean's List
- * 2. College Programs & Course Offerings (CCS, CTE, CHMT, CBA, CIT, CAS)
- * 3. Scholarship Guidelines & Grants (TDP, CHED, UniFAST, TES, Iskolar ng Laguna, OSAS)
- * 4. Campus Directory, Office Locations & Operating Hours
- * 5. Student Handbook Rules, Uniform Policy, Wash Days & ID Regulations
- * 6. Weather Suspension Protocols, Typhoon Signals & Disaster Guidelines
- * 7. Student Organizations & Councils (SSC, OCTA, COESC)
- * 8. Emergency Contacts & San Pablo City Hotlines
- * 9. Standard Student Procedures (COR, TOR, INC Resolution, Shifting, Clearance)
- * 10. University Administration & Student Portal
+ * 1. Undergraduate Academic Policies (Grading, 4.00 removal, INC resolution, GWA, Retention,
+ *    Scholastic Delinquency, MRR, Overload, Dropping, Refund, Attendance, Thesis, Graduation, Tree Planting)
+ * 2. Code of Conduct & Student Discipline (Major Offenses, Minor Offenses, Sanctions Table, Cheating,
+ *    Due Process & Discipline Committee)
+ * 3. Norms, Decorum, Uniform & Grooming (Dress Code, Banned Attire, Haircut SOP, LGBTQ+ Accommodations,
+ *    Earrings, Caps, Tattoos)
+ * 4. Student Services & Welfare (OSAS, Guidance, Clinic, Library, Dorms, MDTP Drug Testing, OJT/SIPP,
+ *    Mental Health & Psychological First Aid)
+ * 5. Appendices (Batas Pambansa 232 Student Rights & Duties, Latin Honors Criteria, Leadership & Sports Awards)
+ * 6. Campus Directory, Office Hours & Emergency Hotlines
+ * 7. Weather Suspensions & Typhoon Protocols
  */
 public class CampusKnowledgeBase {
 
     public static class KnowledgeEntry {
         public final String title;
         public final String content;
+        public final LocalNanoAIEngine.Intent intent;
         public final List<String> triggerKeywords;
         public final List<String> keyPhrases;
-        public final LocalNanoAIEngine.Intent intent;
+        public final String citation;
+        public final String category;
 
         public KnowledgeEntry(String title, String content, LocalNanoAIEngine.Intent intent,
-                              List<String> triggerKeywords, List<String> keyPhrases) {
+                              List<String> triggerKeywords, List<String> keyPhrases,
+                              String citation, String category) {
             this.title = title;
             this.content = content;
             this.intent = intent;
             this.triggerKeywords = triggerKeywords;
             this.keyPhrases = keyPhrases;
+            this.citation = citation;
+            this.category = category;
+        }
+
+        public KnowledgeEntry(String title, String content, LocalNanoAIEngine.Intent intent,
+                              List<String> triggerKeywords, List<String> keyPhrases) {
+            this(title, content, intent, triggerKeywords, keyPhrases,
+                    "LSPU Student Handbook 2021", "General");
         }
     }
 
     private static final List<KnowledgeEntry> ENTRIES = new ArrayList<>();
 
     static {
-        // ========================================================
-        // 1. ACADEMIC GRADING SYSTEM, HONORS & INC RESOLUTION
-        // ========================================================
+        // =========================================================================
+        // 1. ACADEMIC POLICIES & GRADING SYSTEM (Chapter 3)
+        // =========================================================================
+
         ENTRIES.add(new KnowledgeEntry(
-                "LSPU Grading System & Evaluation Scale",
+                "LSPU Official Grading System Scale",
                 "📊 **LSPU Official Grading System Scale**\n\n" +
-                "• **1.00** (99–100%) - Excellent / Superior\n" +
-                "• **1.25** (96–98%) - Highly Outstanding\n" +
-                "• **1.50** (93–95%) - Very Good\n" +
+                "• **1.00** (99–100%) - Excellent\n" +
+                "• **1.25** (96–98%) - Outstanding\n" +
+                "• **1.50** (93–95%) - Very Satisfactory\n" +
                 "• **1.75** (90–92%) - Good\n" +
-                "• **2.00** (87–89%) - Very Satisfactory\n" +
-                "• **2.25** (84–86%) - Satisfactory\n" +
-                "• **2.50** (81–83%) - Fair\n" +
-                "• **2.75** (78–80%) - Passing\n" +
+                "• **2.00** (87–89%) - Satisfactory\n" +
+                "• **2.25** (84–86%)\n" +
+                "• **2.50** (81–83%) - Fairly Satisfactory\n" +
+                "• **2.75** (78–80%)\n" +
                 "• **3.00** (75–77%) - Passing (Lowest passing mark)\n" +
-                "• **5.00** (Below 75%) - Failed\n" +
-                "• **INC** - Incomplete (Due to missed final exam or major requirement)\n" +
-                "• **DRP** - Officially Dropped",
+                "• **4.00** (70–74%) - Conditional Failure (needs removal exam within 1 yr)\n" +
+                "• **5.00** (69% and below) - Failed\n" +
+                "• **INC** - Incomplete (missed final exam or major requirement)\n" +
+                "• **DRP** - Officially Dropped\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 1*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("grading", "grades", "scale", "passing", "singko", "tres", "inc", "drp", "marka", "score", "grade"),
-                Arrays.asList("grading system", "passing grade", "anong passing", "grades scale", "ano ang tres", "ano ang singko", "lowest passing", "ano passing grade", "passing grade sa lspu")
+                Arrays.asList("grading", "grades", "scale", "passing", "singko", "tres", "inc", "drp", "marka", "score", "grade", "4.00", "5.00", "1.00", "passing grade", "lowest passing"),
+                Arrays.asList("grading system", "passing grade", "anong passing", "grades scale", "ano ang tres", "ano ang singko", "lowest passing", "ano passing grade", "passing grade sa lspu", "grading scale", "what is the passing grade", "what is a passing grade", "lowest passing mark", "official grading scale"),
+                "Chapter 3, Article 7, Sec. 1",
+                "Academics"
         ));
 
         ENTRIES.add(new KnowledgeEntry(
-                "Incomplete (INC) Grade Resolution Procedure",
-                "📝 **How to Resolve an Incomplete (INC) Grade**\n\n" +
-                "1. **Prescriptive Period**: An `INC` grade must be resolved within **one (1) academic year** from the semester it was incurred.\n" +
-                "2. **Completion Form**: Obtain an official Completion Form from the Registrar's Office.\n" +
-                "3. **Submission**: Complete the lacking requirement (special exam, project, or portfolio) with your course instructor.\n" +
-                "4. **Instructor Endorsement**: Have the instructor sign and input the final numerical grade on the form.\n" +
-                "5. **Registrar Filing**: Submit the signed form to the Office of the Registrar to update your official transcript.\n\n" +
-                "⚠️ *Note: Failure to complete within 1 academic year automatically turns the INC into a permanent 5.00 (Failed).* ",
+                "Policy on Grade 4.00 (Conditional Failure) Removal",
+                "⚠️ **Removal Policy for Grade of 4.00 (Conditional Failure)**\n\n" +
+                "1. **Removal Examination**: A grade of `4.00` may be removed either by re-examination or repeating the subject.\n" +
+                "2. **Grade Ceiling**: The highest grade a student can obtain upon removal examination is **3.00**. If the removal examination is failed, the grade becomes **5.00**.\n" +
+                "3. **Prescriptive Period**: Only one (1) removal examination is allowed, which must be taken within **one (1) academic year** from the date the 4.00 was received.\n" +
+                "4. **Automatic 5.0**: If not removed within the 1-year period, it is automatically converted into a permanent **5.00**.\n" +
+                "5. **Prerequisite Rule**: If the course is a prerequisite for the next semester, the 4.00 must be removed before next enrolment.\n" +
+                "6. **Removal Fee**: ₱20.00 per unit during regular removal period (₱100.00 per unit for special removal exam).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 5.3*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("inc", "incomplete", "completion", "resolution", "kulang", "ayos"),
-                Arrays.asList("paano maayos ang inc", "how to resolve inc", "incomplete grade", "ano gagawin sa inc", "pano ayusin ang inc", "resolving inc", "paano ayusin ang inc")
+                Arrays.asList("4.00", "4.0", "conditional", "removal", "tanggal", "re-examination", "alisin", "four", "conditional failure", "removal exam"),
+                Arrays.asList("grade of 4.00", "paano alisin ang 4", "removal exam", "removal of 4.00", "conditional grade", "ano gagawin sa 4.00", "paano maalis ang 4", "what happens if i get a 4.0", "what happens if i get a 4.0 grade", "policy on 4.0 grade", "how to remove 4.0", "grade 4.0 removal", "conditional failure removal"),
+                "Chapter 3, Article 7, Sec. 5.3",
+                "Academics"
         ));
 
         ENTRIES.add(new KnowledgeEntry(
-                "Dean's List & Academic Honors Criteria",
-                "🎖️ **LSPU Dean's List & Honor Student Criteria**\n\n" +
-                "To qualify for the Dean's Honor Roll at the end of each semester:\n" +
-                "• **General Weighted Average (GWA)**: Must be **1.75 or better**.\n" +
-                "• **Grade Ceiling**: No individual grade lower than **2.00** in any enrolled academic course.\n" +
-                "• **Academic Load**: Must carry the full regular semestral load as prescribed in the curriculum (no underloading).\n" +
-                "• **Disciplinary Standing**: Must have no disciplinary sanction or record of misconduct.\n\n" +
-                "📜 **Latin Honors at Graduation**:\n" +
-                "• **Summa Cum Laude**: GWA of 1.00 to 1.20 (No grade below 1.75)\n" +
-                "• **Magna Cum Laude**: GWA of 1.21 to 1.45 (No grade below 2.00)\n" +
-                "• **Cum Laude**: GWA of 1.46 to 1.75 (No grade below 2.25)",
+                "Incomplete (INC) Grade Resolution & Automatic 5.0 Rule",
+                "📝 **Incomplete (INC) Mark Resolution Procedure**\n\n" +
+                "1. **Eligibility**: An `INC` is given ONLY when class standing is passing, but the student missed the final exam due to illness/valid reason (with approved excuse slip) or lacks a major course requirement.\n" +
+                "2. **1-Year Time Limit**: An `INC` must be completed within **one (1) academic year** from the semester it was incurred.\n" +
+                "3. **Automatic 5.0**: If NOT completed within the 1-year period, the grade of `INC` will **automatically be changed to 5.00 (Failed)** by the Registrar upon confirmation with the professor or Dean.\n" +
+                "4. **Filing Procedure**: Obtain an official Completion Form from the Registrar, complete the lacking requirement with the instructor, and submit the signed form.\n" +
+                "5. **Completion Fee**: ₱20.00 per unit (₱100.00 for special completion).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 5.4 & 5.5*",
                 LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("deans", "dean's", "honors", "latin", "cum laude", "summa", "magna", "honor roll"),
-                Arrays.asList("deans list requirements", "dean's list requirements", "how to be deans list", "how to be dean's list", "latin honors criteria", "gwa for cum laude", "deans list", "dean's list", "magkano gwa sa deans list")
+                Arrays.asList("inc", "incomplete", "completion", "resolution", "kulang", "automatic 5", "singko", "clear inc", "resolve inc", "incomplete grade"),
+                Arrays.asList("paano maayos ang inc", "how to resolve inc", "incomplete grade", "ano gagawin sa inc", "pano ayusin ang inc", "resolving inc", "kailan nagiging 5 ang inc", "automatic 5.0 inc", "how do i clear an incomplete grade", "how do i resolve an inc grade", "how to clear inc grade", "how to resolve incomplete grade", "incomplete grade resolution", "clear incomplete grade"),
+                "Chapter 3, Article 7, Sec. 5.4",
+                "Academics"
         ));
 
-        // ========================================================
-        // 2. COLLEGE PROGRAMS & DEGREE OFFERINGS (LSPU-SPCC)
-        // ========================================================
         ENTRIES.add(new KnowledgeEntry(
-                "LSPU San Pablo Academic Programs & Colleges",
-                "🏛️ **LSPU San Pablo City Campus Academic Programs**\n\n" +
-                "• **College of Computer Studies (CCS)**:\n" +
-                "  - BS in Computer Science (BSCS)\n" +
-                "  - BS in Information Technology (BSIT)\n\n" +
-                "• **College of Teacher Education (CTE)**:\n" +
-                "  - Bachelor of Secondary Education (BSED: English, Math, Science, Social Studies)\n" +
-                "  - Bachelor of Elementary Education (BEED)\n\n" +
-                "• **College of Hospitality Management & Tourism (CHMT)**:\n" +
-                "  - BS in Hospitality Management (BSHM)\n" +
-                "  - BS in Tourism Management (BSTM)\n\n" +
-                "• **College of Business Administration (CBA)**:\n" +
-                "  - BS in Business Administration (Financial Mgt, Marketing Mgt, HR Mgt)\n\n" +
-                "• **College of Industrial Technology (CIT)**:\n" +
-                "  - Automotive, Electronics, Electrical, and Mechanical Technology\n\n" +
-                "• **College of Arts & Sciences (CAS)**:\n" +
-                "  - AB in English Language Studies, BS in Psychology",
+                "Grade Rectification Period & Submission Deadline",
+                "⏱️ **Grade Submission & Rectification Policy**\n\n" +
+                "• **Faculty Submission Deadline**: Instructors must submit grades to the Registrar no later than **ten (10) working days** after the last day of the examination period.\n" +
+                "• **Rectification Period**: A student who receives a grade believed to be erroneous may request in writing for change/rectification within **ten (10) days** after the official release of grades by the Registrar.\n" +
+                "• **No Grade Improvement**: A student who has received a passing grade in a course is **not allowed** a re-examination to improve the grade.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 7, Sec. 2 & 3*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("rectification", "mali", "reklamo", "change grade", "ayos grado", "submission", "deadline"),
+                Arrays.asList("maling grado", "grade rectification", "reklamo sa grade", "change of grade", "deadline ng grades", "rectification of grades"),
+                "Chapter 3, Article 7, Sec. 2 & 3",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "LSPU Retention Policy & Minimum Passing Grades",
+                "🎯 **LSPU Retention Policies & Academic Standards**\n\n" +
+                "• **Overall Minimum GPA**: Must maintain a minimum Grade Point Average of **2.00** every semester.\n" +
+                "• **Board Programs** (Engineering, IT, Nursing, Education, Accountancy, Criminology, Agriculture):\n" +
+                "  - Major-related subjects: Minimum final grade of **2.00**\n" +
+                "  - Professional subjects: Minimum final grade of **2.00**\n" +
+                "  - General Education subjects: **1.75 - 1.00**\n" +
+                "• **Non-Board Programs** (HRM, Tourism, Industrial Tech):\n" +
+                "  - Major-required subjects: Minimum final grade of **2.25**\n" +
+                "  - Professional subjects: Minimum final grade of **2.25**\n" +
+                "  - General Education subjects: **2.00 - 1.00**\n" +
+                "• **Retake Policy**:\n" +
+                "  - Major subject below required grade: Retake allowed **ONCE**; maximum of 2 major subjects retaken from 3rd to 4th year.\n" +
+                "  - Grade of 5.00 in ANY General Education / Elective: **Disqualified** from continuing in the chosen curriculum and advised to shift.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 5, Sec. 3*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("retention", "board", "non-board", "maintaining", "gpa", "bawal", "retake", "disqualified"),
+                Arrays.asList("retention policy", "minimum gpa", "board program grade", "retake ng major", "retention sa board program", "maintaining grade"),
+                "Chapter 3, Article 5, Sec. 3",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Scholastic Delinquency Matrix: Warning, Probation, Dismissal & Disqualification",
+                "📉 **Scholastic Delinquency Standards**\n\n" +
+                "• **Warning** (Fails 25% – 49% of academic units):\n" +
+                "  - Warned by College Dean; allowable load reduced by **3 units** next semester.\n" +
+                "• **Probation** (Fails 50% – 74% of units, 6+ units):\n" +
+                "  - Placed on academic probation; allowable load capped at **15 units only**. Lifted upon passing all enrolled subjects.\n" +
+                "• **Dismissal from College** (Fails 75% or more of units, 9+ units):\n" +
+                "  - Dismissed from the College; not allowed to enroll in the program.\n" +
+                "• **Permanent Disqualification** (100% Failure):\n" +
+                "  - **Permanently barred** from enrollment in Laguna State Polytechnic University.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 5, Sec. 4 & Sec. 8*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("delinquency", "warning", "probation", "dismissal", "disqualification", "bagsak", "drop", "15 units"),
+                Arrays.asList("scholastic delinquency", "academic probation", "dismissal sa lspu", "na probation", "permanent disqualification", "ilang bagsak ma dismiss"),
+                "Chapter 3, Article 5, Sec. 4",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Maximum Residence Rule (MRR) for Undergraduates",
+                "⏳ **Maximum Residence Rule (MRR)**\n\n" +
+                "• **Standard Formula**: A student must finish all degree requirements within an actual residence equivalent to **1.5 times the normal length** of the course.\n" +
+                "• **4-Year Degree Programs** (e.g. BSCS, BSIT, BSED, BSBA): Maximum of **six (6) years**.\n" +
+                "• **5-Year Degree Programs** (e.g. BS Engineering): Maximum of **seven and a half (7.5) years**.\n" +
+                "• **Penalty for Exceeding MRR**: The student shall **not be allowed to register** in the university.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 11*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("mrr", "residence", "maximum", "years", "ilang taon", "tagal", "limit"),
+                Arrays.asList("maximum residence rule", "mrr policy", "hanggang ilang taon pwede mag aral", "maximum years to finish college", "mrr sa lspu"),
+                "Chapter 3, Article 11",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Academic Overloading Guidelines (Graduating Students)",
+                "📚 **Academic Overload Guidelines**\n\n" +
+                "• **General Rule**: No student is allowed to take more than the normal prescribed semester load.\n" +
+                "• **Graduating Students Exemption**: Only a graduating student with an academic record better than average may apply with the **Vice President for Academic Affairs (VPAA)** for an overload.\n" +
+                "• **Maximum Overload Allowed**: Not more than **six (6) units or two (2) subjects**.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 6, Sec. 1.3*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("overload", "sobra", "units", "graduating", "vpaa", "magdagdag"),
+                Arrays.asList("pwede ba mag overload", "academic overload", "overload guidelines", "ilang units pwede i-overload", "graduating overload"),
+                "Chapter 3, Article 6, Sec. 1.3",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Adding, Dropping & Change of Registration Policy",
+                "🔄 **Adding, Dropping & Change of Registration**\n\n" +
+                "• **Change of Registration**: Taking a new subject is NOT allowed after **12% of regular class meetings** have been held.\n" +
+                "• **Dropping Before Midterms**: Dropping any subject before the midterm examination permits a student to drop **without prejudice** (`DRP`).\n" +
+                "• **Dropping After Midterms**: If dropped after the 1st day of midterms, the instructor gives a grade of **5.00** if the student's class standing is below 3.0.\n" +
+                "• **Unauthorized Dropping**: Dropping without College Dean's approval = **automatic grade of 5.00**.\n" +
+                "• **Absence Rule**: Accumulated absence of at least 25% of class hours = automatically dropped from the roll.\n" +
+                "• **Dropping Fee**: ₱20.00 per unit (BOR Reso. 1046, s.2012).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 6, Sec. 3 & 4*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("dropping", "drop", "change of registration", "palit", "bawas", "20 per unit", "midterm drop", "drop subject", "drop a subject"),
+                Arrays.asList("paano mag drop", "drop subject", "dropping policy", "dropping fee", "change of registration", "huling araw ng dropping", "how to drop a subject", "how to drop subjects", "drop a subject", "dropping a subject", "dropping policy"),
+                "Chapter 3, Article 6, Sec. 4",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Tuition Fee Refund Schedule & Late Registration Fine",
+                "💰 **Registration Fees, Fines & Refund Schedule**\n\n" +
+                "• **Late Registration**: Allowed up to one (1) week after regular registration period. Late fine: **₱500.00** (BOR Reso. 1046, s.2012).\n" +
+                "• **Tuition Fee Refund Schedule** (upon approved LOA or Honorable Dismissal):\n" +
+                "  - **75% refund**: Within the 1st week from opening of classes.\n" +
+                "  - **50% refund**: Within the 2nd to 4th week from opening of classes.\n" +
+                "  - **No refund (0%)**: After the 4th week from opening of classes.\n" +
+                "• **Non-refundable Fees**: Laboratory, registration, library, and miscellaneous fees will NOT be refunded after registration.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 3, Sec. 1 & 3*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("refund", "late", "fine", "500", "matrikula", "bayad", "pera", "ibalik"),
+                Arrays.asList("refund ng tuition", "may refund ba", "late registration fine", "paano mag refund", "tuition refund schedule"),
+                "Chapter 3, Article 3, Sec. 1 & 3",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Class Attendance, Tardiness & Guidance Excuse Slips",
+                "📋 **Class Attendance, Tardiness & Excuse Slips**\n\n" +
+                "• **Attendance Rule**: Students must attend classes and required university activities regularly and on time.\n" +
+                "• **Tardiness Equivalents**: Three (3) instances of tardiness in a class equal **one (1) absence**.\n" +
+                "• **Excuse Slip Process**: Any student absent must secure an official **Excuse Slip from the Guidance Office / OSAS**.\n" +
+                "• **Presentation Deadline**: Must present the excuse slip (with medical cert if due to illness) to the instructor **not later than the 2nd class session** following return.\n" +
+                "• **Excessive Absences**: Accumulating unexcused absences equivalent to **25% of total class hours** (or 17% in specific courses) leads to being dropped from the roll.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Art. 8 & Chapter 6, Art. 3, Sec. 1*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("course", "courses", "program", "programs", "degree", "curriculum", "major", "colleges", "college", "ccs", "cte", "chmt", "cba", "cit"),
-                Arrays.asList("anong mga kurso", "course offerings", "programs offered", "list of courses", "available courses", "courses offered in ccs", "degree programs", "anong kurso meron")
+                Arrays.asList("attendance", "absent", "tardiness", "excuse slip", "guidance", "late", "drop absences"),
+                Arrays.asList("paano kumuha ng excuse slip", "excuse slip sa guidance", "rules sa absent", "ilang absent bago ma drop", "tardiness rule"),
+                "Chapter 3, Article 8",
+                "Campus Life"
         ));
 
-        // ========================================================
-        // 3. SCHOLARSHIPS & FINANCIAL ASSISTANCE (OSAS)
-        // ========================================================
+        ENTRIES.add(new KnowledgeEntry(
+                "Course Shifting & Transferring to Another College",
+                "🔀 **Course Shifting & Transfer Regulations**\n\n" +
+                "• **Shifting Within LSPU** (to any BS Program):\n" +
+                "  1. No failure of greater than **six (6) units** during the semester.\n" +
+                "  2. No failing grade in major/course-related subjects stated in target curriculum retention policy.\n" +
+                "  3. Must accomplish the official Shifting Form from the Office of the Registrar.\n" +
+                "• **Transferring to Another College**:\n" +
+                "  - Must obtain recommendation from previous Dean and approval from Registrar before **12% of class meetings**.\n" +
+                "  - Must finish no less than **60% of units** in LSPU (and 75% if running for honors).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 2, Sec. 2.9 & 2.10*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("shifting", "shift", "transfer", "lipat", "kurso", "palit", "requirements", "course shifting", "shift course", "transferring"),
+                Arrays.asList("paano mag shift", "shifting requirements", "rules sa pag shift", "transfer sa ibang college", "requirements sa pagpalit ng kurso", "how to shift course", "how to shift to another course", "course shifting requirements", "how to transfer course", "shifting policy"),
+                "Chapter 3, Article 2, Sec. 2.10",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Undergraduate Thesis Guidelines & Manuscript Submission",
+                "📖 **Undergraduate Thesis Guidelines**\n\n" +
+                "• **Thesis Outline Panel**: Approved by a panel comprising Panel Chair, Statistician, English Critic, Subject Specialist, College Dean, and Research Director.\n" +
+                "• **Defense**: Conducted under supervision of Thesis Adviser before final writing.\n" +
+                "• **Manuscript Submission**: After approval, **five (5) typewritten copies** must be presented to the Registrar's Office at least **two (2) weeks** before faculty acts on candidacy for graduation.\n" +
+                "• **Signatories on Approval Sheet**: Adviser, panel members, Dean/Associate Dean, Registrar, and Research Contribution Number.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 13*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("thesis", "manuscript", "defense", "outline", "panel", "undergraduate thesis"),
+                Arrays.asList("thesis requirements", "thesis defense guidelines", "ilang kopya ng thesis", "thesis outline approval", "undergraduate thesis"),
+                "Chapter 3, Article 13",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Graduation Requirements & Mandatory Tree Planting",
+                "🎓 **Graduation Requirements & Mandatory Tree Planting**\n\n" +
+                "No student shall graduate without satisfying all of the following:\n" +
+                "1. **Curriculum Completion**: Completed all academic and prescribed university subjects.\n" +
+                "2. **Mandatory Tree Planting**: Individually planted a minimum of **ten (10) seedlings per year** in designated college areas (National Greening Program EO No. 26). *(Deferred in times of pandemic)*.\n" +
+                "3. **Clearance**: Full settlement of financial and property accountabilities.\n" +
+                "4. **Residency**: Completed at least 50% of academic units and in residence for at least two (2) years in LSPU (including senior year).\n" +
+                "5. **Commencement Exercises**: Mandatory attendance. Graduacion in absencia is allowed only via written approval from the University President for serious illness.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 14*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("graduation", "graduate", "tree planting", "seedlings", "tanim", "clearance", "residency", "graduacion in absencia"),
+                Arrays.asList("requirements for graduation", "ano requirements para grumaduate", "tree planting requirement", "graduacion in absencia", "mandatory tree planting"),
+                "Chapter 3, Article 14",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Honorable Dismissal & Student Clearance Procedure",
+                "📜 **Honorable Dismissal & Clearance Regulations**\n\n" +
+                "• **Definition**: Voluntary withdrawal from the university with the consent of the Registrar.\n" +
+                "• **Requirements**: Settle all property and financial indebtedness; submit written petition signed by parents/guardians to the Registrar.\n" +
+                "• **Disqualification**: A student who leaves the university due to **suspension, dropping, or expulsion for disciplinary reasons is NOT entitled** to Honorable Dismissal.\n" +
+                "• **Readmission Note**: A student granted an honorable dismissal may not be readmitted to the university.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 12*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("honorable dismissal", "clearance", "withdraw", "lipat school", "dismissal form"),
+                Arrays.asList("paano kumuha ng honorable dismissal", "honorable dismissal requirements", "clearance para sa honorable dismissal"),
+                "Chapter 3, Article 12",
+                "Academics"
+        ));
+
+        // =========================================================================
+        // 2. CODE OF CONDUCT & STUDENT DISCIPLINE (Chapter 6)
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Cheating in Examinations & Academic Dishonesty Sanctions",
+                "⚖️ **Sanctions for Cheating & Academic Dishonesty**\n\n" +
+                "• **Cheating in Examinations** (Kodigo, copying, unauthorized phone usage):\n" +
+                "  - **1st Offense**: **Automatically failed** in the examination.\n" +
+                "  - **2nd Offense**: **Academic probation** and automatic final grade of **5.00** in the subject.\n" +
+                "  - **3rd Offense**: **Dismissal from the University**.\n\n" +
+                "• **Other Acts of Dishonesty in Studies**:\n" +
+                "  - **1st Offense**: Reprimand with community service.\n" +
+                "  - **2nd Offense**: Promissory note signed by Guidance Counselor/Discipline Coordinator + 2 days community service.\n" +
+                "  - **Subsequent**: Suspension for two (2) weeks.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 3, Sec. 2*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("cheating", "cheat", "kodigo", "exam", "dishonesty", "parusa", "sanction", "sanctions", "pangongopya", "kopya", "academic dishonesty"),
+                Arrays.asList("ano parusa sa cheating", "parusa sa pangongopya", "cheating in examination", "nahuli nag cheat", "cheating sanctions", "parusa kapag nag cheat", "what happens if i get caught cheating", "caught cheating in exam", "cheating penalties", "cheating in exam sanction"),
+                "Chapter 6, Article 3, Sec. 2",
+                "Discipline"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Major Student Offenses & Disciplinary Penalties Table",
+                "🚨 **LSPU Major Student Offenses & Progressive Penalties**\n\n" +
+                "• **Deadly Weapons** (Firearms, blades >2.5 inches, explosives):\n" +
+                "  - 1st: 1 semester suspension | 2nd: 1 year suspension | 3rd: **Expulsion**\n" +
+                "• **Physical Assault / Fist Fighting**:\n" +
+                "  - 1st: 1 week suspension + 40 hrs service + damages | 2nd: 1 semester | 3rd: **Expulsion**\n" +
+                "• **Stealing / Theft**:\n" +
+                "  - 1st: 1 semester suspension + damages | 2nd: **Expulsion**\n" +
+                "• **Drinking Alcohol / Drunkenness on Campus**:\n" +
+                "  - Drinking: 1st: 1 wk + 40 hrs | 2nd: 1 sem | 3rd: **Expulsion**\n" +
+                "  - Drunkenness with injury/property damage: 1st: 1 mo + damages | 2nd: 1 sem | 3rd: **Expulsion**\n" +
+                "• **Narcotics / Prohibited Drugs** (RA 9165):\n" +
+                "  - 1st Offense: 1 semester suspension or dismissal + mandatory rehab.\n" +
+                "• **Vandalism & Destruction of Property**:\n" +
+                "  - 1st: 1 month + damages | 2nd: 1 semester + damages | 3rd: **Expulsion**\n" +
+                "• **Strikes / Boycotts without Permit**:\n" +
+                "  - 1st: 1 month | 2nd: 1 semester | 3rd: **Expulsion**\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 2*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("major offense", "weapons", "baril", "patalim", "assault", "suntukan", "away", "stealing", "magnakaw", "alcohol", "alak", "vandalism", "expulsion"),
+                Arrays.asList("major offenses", "parusa sa suntukan", "parusa sa alak", "parusa sa drugs", "parusa sa pagnanakaw", "major offenses and penalties", "list of major offenses"),
+                "Chapter 6, Article 2",
+                "Discipline"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Acts of Cybercrime Penalties (RA 10175)",
+                "💻 **Sanctions for Cybercrime & Online Misconduct (RA 10175)**\n\n" +
+                "• **Cyberbullying** (Harassment via electronic means):\n" +
+                "  - 1st Offense: Suspension for one (1) month\n" +
+                "  - 2nd Offense: Suspension for one (1) semester\n" +
+                "  - 3rd Offense: **Expulsion from the University**\n" +
+                "• **Hacking / Illegal Account Access**:\n" +
+                "  - 1st: 1 month suspension | 2nd: 1 semester | 3rd: Expulsion\n" +
+                "• **Immediate Expulsion Offenses (1st Offense)**:\n" +
+                "  ❌ **Cybersex** or lascivious exhibition using computer systems\n" +
+                "  ❌ **Child Pornography** (RA 9775)\n" +
+                "  ❌ **Cyber Libel** under Article 355 of the Revised Penal Code\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 2, Sec. 1*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("cybercrime", "cyberbullying", "hacking", "cyber libel", "online bullying", "scandal", "expulsion"),
+                Arrays.asList("parusa sa cyberbullying", "cybercrime rules", "hacking penalty", "cyber libel sa lspu", "cybercrime act"),
+                "Chapter 6, Article 2, Sec. 1",
+                "Discipline"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Anti-Bullying Policy & Physical Violence (RA 10627)",
+                "🛡️ **Anti-Bullying Policies & Penalties (RA 10627)**\n\n" +
+                "• **Verbal / Emotional Bullying & Intimidation**:\n" +
+                "  - 1st Offense: Suspension for 1 week and 40 hours institutional service.\n" +
+                "  - 2nd Offense: Suspension for one (1) month.\n" +
+                "  - 3rd Offense: Suspension for one (1) semester.\n" +
+                "• **Physical Bullying / Unwanted Contact** (punching, pushing, weapon use):\n" +
+                "  - 1st Offense: Suspension for one (1) month.\n" +
+                "  - 2nd Offense: Suspension for one (1) semester.\n" +
+                "  - 3rd Offense: **Expulsion from the University**.\n" +
+                "• **Slanderous Statements & Name-calling**:\n" +
+                "  - 1st: 1 month | 2nd: 1 semester | 3rd: Expulsion.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 2, Sec. 5*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("bullying", "bully", "anti-bullying", "pananakot", "away", "panunukso", "foul language"),
+                Arrays.asList("anti-bullying policy", "parusa sa bullying", "parusa sa pambu-bully", "physical bullying sanction"),
+                "Chapter 6, Article 2, Sec. 5",
+                "Discipline"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Minor Student Offenses: ID, Smoking, Littering & Trespassing",
+                "⚠️ **Minor Student Offenses & Progressive Penalties**\n\n" +
+                "• **Non-wearing of ID and School Uniform**:\n" +
+                "  - 1st Action: Denied entry at university gates/classes without OSAS Excuse Slip.\n" +
+                "  - 2nd Action: Submit filled-out Promissory Note Form.\n" +
+                "  - Subsequent: Suspension for 1 week and 40 hours service.\n" +
+                "• **Smoking on Campus**: Strictly prohibited.\n" +
+                "  - 1st: Reprimand + community service | 2nd: Promissory note + 2 days service | 3rd: 2 weeks suspension.\n" +
+                "• **Littering / Trash Scattering**:\n" +
+                "  - 1st: Required to clean area | 2nd: 1 wk + 40 hrs service | 3rd: 2 weeks suspension.\n" +
+                "• **Campus Trespassing** (after hours or off-school days without permit):\n" +
+                "  - 1st: Reprimand + promissory note | 2nd: Parents informed + 1 wk + 40 hrs | 3rd: 1 month suspension.\n" +
+                "• **Overspeeding Vehicles on Campus (>20 kph)**:\n" +
+                "  - 1st: Reprimand | 2nd: 1 wk + 40 hrs | 3rd: 1 semester suspension.\n" +
+                "• **Unauthorized Fence Jumping**:\n" +
+                "  - 1st: Reprimand + community service | 2nd: 1 wk + 40 hrs | 3rd: 1 semester suspension.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 3*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("minor offense", "smoking", "yosi", "sigarilyo", "littering", "basura", "trespassing", "bakod", "gate", "speeding", "promissory note"),
+                Arrays.asList("bawal manigarilyo", "parusa sa smoking", "parusa sa pagtapon ng basura", "trespassing sa school", "minor offenses"),
+                "Chapter 6, Article 3",
+                "Discipline"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Student Disciplinary Procedure & Due Process",
+                "⚖️ **Student Disciplinary Due Process & Committee**\n\n" +
+                "• **Procedure for Major Disciplinary Actions**:\n" +
+                "  1. **1st Action**: Written complaint reported to OSAS through Coordinator of Student Discipline.\n" +
+                "  2. **2nd Action**: OSAS investigates through the Student Discipline Committee.\n" +
+                "  3. **3rd Action**: All parties concerned shall be afforded **due process**.\n" +
+                "  4. **4th Action**: Final investigation report submitted to the **University President** (who has final authority in all cases).\n" +
+                "  5. **5th Action**: Guidance Counselor conducts follow-up counseling.\n" +
+                "• **Discipline Committee Composition**: OSAS Chairperson (Chair), Discipline Coordinator (Vice Chair), VPAA / Campus Director, College Dean, Chief Security Officer, SSC President, University Legal Consultant.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 6 & 7*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("discipline", "committee", "due process", "reklamo", "complaint", "hearing", "osas"),
+                Arrays.asList("disciplinary procedure", "paano mag reklamo", "due process sa lspu", "student discipline committee", "reklamo sa osas"),
+                "Chapter 6, Article 6 & 7",
+                "Discipline"
+        ));
+
+        // =========================================================================
+        // 3. NORMS, DECORUM, UNIFORM & GROOMING (Chapter 6, Article 4)
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "School Uniform Schedule, Wash Days & Prohibited Attire List",
+                "👔 **Official Uniform Policy, Wash Days & Dress Code**\n\n" +
+                "• **Uniform Days**: Monday, Tuesday, Thursday, and Friday.\n" +
+                "• **Wash / Civilian Days**:\n" +
+                "  - **Wednesday**: University T-shirt with blue jeans/maong trousers.\n" +
+                "  - **Friday**: Department Shirt with blue jeans/maong trousers.\n\n" +
+                "🚫 **STRICTLY PROHIBITED ATTIRE (Barred at University Gates)**:\n" +
+                "  ❌ Shorts / short pants, walking shorts, cycling shorts\n" +
+                "  ❌ 'Puruntong' style or Cargo shorts\n" +
+                "  ❌ Pedal pusher pants, Capri pants\n" +
+                "  ❌ Mutilated / jazzed / heavily ripped jeans\n" +
+                "  ❌ Faded, torn, wrinkled shirts\n" +
+                "  ❌ Jogging pants / jogger pants\n" +
+                "  ❌ Miniskirts\n" +
+                "  ❌ Sleeveless tops, backless, one-sleeve, spaghetti straps, sandos\n" +
+                "  ❌ Plunging necklines / halter tops\n" +
+                "  ❌ Leggings\n" +
+                "  ❌ Slippers / flip-flops\n\n" +
+                "👖 **Female Pants Rule**: Must be slacks or loosely cut trousers, not denim/maong and not very tight fitting.\n" +
+                "🏃 **P.E. Uniform**: Worn ONLY during P.E. classes; barred from regular academic classrooms.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("uniform", "dress code", "wash day", "wednesday", "friday", "bawal", "shorts", "tsinelas", "slippers", "sando", "damit", "suot", "leggings", "jogging pants", "miniskirt", "attire", "clothes", "clothing", "wear", "shoes", "sandals", "prohibited attire"),
+                Arrays.asList("uniform wash day", "kailan wash day", "dress code rules", "pwede ba mag civilian", "anong suot sa wednesday", "bawal ba shorts", "bawal ba tsinelas", "civilian day", "uniform policy", "bawal na damit", "list of prohibited attire", "what is the dress code", "can i wear shorts", "can i wear slippers", "are shorts allowed", "are slippers allowed", "dress code rules", "dress code policy", "rules on dress code", "what to wear on campus", "prohibited attire", "prohibited clothes"),
+                "Chapter 6, Article 4, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Male Haircut Regulations, Grooming & Inspection SOP",
+                "✂️ **LSPU Haircut & Hair Grooming Guidelines**\n\n" +
+                "• **Approved Male Haircuts**:\n" +
+                "  - **Freshmen & Senior High School**: **2x3 haircut**.\n" +
+                "  - **2nd to 4th Year College**: **Clean-cut or 1x2 barbers / decent cut**.\n" +
+                "• **Prohibited Styles**: Funky short or fixie crop (shaven sides and long top fastened with ties or stiffened with gel).\n" +
+                "• **Hair Color Policy**: Colored/tinted/dyed hair out of the ordinary is prohibited. Minimal aesthetic coloring requires approval from OSAS and Campus Director.\n" +
+                "• **SOP Haircut Inspection**: Conducted every **first (1st) Monday of the month** by Guard-on-Duty, Chief of Security, and OSAS.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 2*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("haircut", "hair", "gupit", "buhok", "barbers", "2x3", "1x2", "hair color", "kulay", "fixie", "inspection", "clean-cut", "male haircut", "long hair"),
+                Arrays.asList("haircut rules", "rules sa haircut", "haircut ng lalaki", "haircut sa lalaki", "ano haircut sa lspu", "gupit ng lalaki", "hair inspection", "bawal ba kulay buhok", "2x3 haircut", "haircut policy", "pwede ba may kulay buhok", "what are the rules on male haircut", "male haircut rules", "haircut rules for boys", "haircut rules for men", "can guys have long hair", "can boys have long hair", "male hair regulations"),
+                "Chapter 6, Article 4, Sec. 2",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "LGBTQ+ Gender Representation & Uniform Policy",
+                "🌈 **LGBTQ+ Clothing & Gender Representation Policy**\n\n" +
+                "• **Gender Expression Right**: Transgender students have the right to dress in accordance with their gender identity and expression.\n" +
+                "• **Uniform Specifications**:\n" +
+                "  - **Transwomen**: Allowed male uniform pants and polo, but with **female cut blouses** of the same color as the male uniform.\n" +
+                "  - **Transmen**: Allowed to wear pants and polo of the **same color as the female uniform**.\n" +
+                "• **Grooming Accommodations**:\n" +
+                "  - Transgender girls are **NOT** required to have a male haircut, provided their hair is clipped properly (men's tail or fold-over style).\n" +
+                "  - Transgender boys are **NOT** required to maintain a female hairstyle, wear make-up, or wear feminine clothing.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 6 (Gender and Development Unit)*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("lgbt", "lgbtq", "transgender", "gender", "transwoman", "transman", "identity", "gay", "lesbian"),
+                Arrays.asList("lgbt uniform rules", "transgender uniform", "pwede ba trans mag suot", "gender representation policy", "lgbt dress code", "transgender haircut"),
+                "Chapter 6, Article 4, Sec. 6",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Earrings, Caps & Body Tattoo Regulations",
+                "🪪 **Earrings, Caps & Tattoo Guidelines**\n\n" +
+                "• **Earrings**:\n" +
+                "  - **Male Students**: Wearing of ANY kind of earrings is **strictly prohibited**.\n" +
+                "  - **Female Students**: Ornamental, dropped, dangling, nose, eyebrow, tongue, and lip earrings are prohibited.\n" +
+                "• **Caps / Headgear**: Wearing of caps or headgear inside any classroom, office, or hall is **strictly prohibited** for both male and female students.\n" +
+                "• **Tattoos**: Permanent tattooing on exposed parts of the body is **strictly prohibited**.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 4, Sec. 3, 4, 5*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("earrings", "earring", "hikaw", "cap", "caps", "sombrero", "tattoo", "tattoos", "piercing", "piercings", "bawal", "male earrings", "boys earrings"),
+                Arrays.asList("pwede ba mag hikaw", "bawal ba hikaw sa lalaki", "tattoo policy", "bawal ba tattoo", "bawal ba cap sa loob", "earrings policy", "hikaw rules", "can male students wear earrings", "are male students allowed to wear earrings", "can boys wear earrings", "can guys wear earrings", "earrings rules for male", "earrings policy", "wearing caps in class", "body tattoo rules", "are piercings allowed"),
+                "Chapter 6, Article 4, Sec. 3-5",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Student ID Regulations & Lost ID Replacement",
+                "🪪 **Student ID Regulations & Lost ID Replacement**\n\n" +
+                "• **'No ID, No Entry' Policy**: The official university ID with lanyard must be worn around the neck at all times upon entering campus premises.\n" +
+                "• **ID Lending / Borrowing**: Using or lending someone else's ID or library card is a disciplinary offense.\n" +
+                "• **What to do if your ID is Lost**:\n" +
+                "  1. **Affidavit of Loss**: Secure a notarized Affidavit of Loss from a notary public.\n" +
+                "  2. **OSAS Slip**: Present affidavit to OSAS / Security for an ID Replacement Slip.\n" +
+                "  3. **Payment**: Pay the replacement fee at the University Cashier (Admin Ground Floor).\n" +
+                "  4. **ID Re-issuance**: Submit receipt and form to MIS/ICT ID Unit.\n" +
+                "  5. **Claiming**: Claim replacement ID upon release notice.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 3, Sec. 4 & Chapter 6, Article 4*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("id", "lost id", "nawala", "lanyard", "affidavit", "no id no entry", "replacement", "id replacement", "replace id"),
+                Arrays.asList("nawala ang id ko", "nawala id ko", "lost id", "how to replace lost id", "no id no entry rule", "paano kumuha ng bagong id", "id replacement procedure", "how to replace a lost id", "what to do if id is lost", "replace lost student id"),
+                "Chapter 6, Article 3, Sec. 4",
+                "Campus Life"
+        ));
+
+        // =========================================================================
+        // 4. APPENDICES: HONORS, AWARDS, DRUG TESTING & INTERNSHIP
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Latin Honors Criteria (Summa, Magna, Cum Laude) & Dean's List",
+                "🎖️ **Latin Honors & Academic Awards Criteria**\n\n" +
+                "• **Graduation Latin Honors Scale**:\n" +
+                "  - **Summa Cum Laude**: GWA of **1.00 to 1.20**\n" +
+                "  - **Magna Cum Laude**: GWA of **1.21 to 1.45**\n" +
+                "  - **Cum Laude**: GWA of **1.46 to 1.75**\n\n" +
+                "📜 **Mandatory Disqualifying Conditions**:\n" +
+                "  1. **Grade Ceiling**: Must NOT have received a grade lower than **2.00 in ALL subjects** (including PE, NSTP/CWTS, and Euthenics).\n" +
+                "  2. **Academic Load**: Must have carried a normal full load each semester (not less than 15 units).\n" +
+                "  3. **Residency**: Must have completed at least **75% of units in LSPU** and in residence for at least two (2) years immediately prior to graduation.\n" +
+                "  4. **No INC or DRP**: Candidate must NOT have any record of Incomplete (INC) or dropped (DRP) subjects.\n" +
+                "  5. **Good Moral**: Must possess an unblemished disciplinary record.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix B, Article 1*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("latin", "honors", "cum laude", "magna", "summa", "deans list", "dean's list", "honor roll", "latin honors"),
+                Arrays.asList("deans list requirements", "dean's list requirements", "how to be deans list", "latin honors criteria", "gwa for cum laude", "deans list", "magkano gwa sa deans list", "criteria sa cum laude", "what is the criteria for cum laude", "cum laude requirements", "magna cum laude requirements", "summa cum laude requirements", "latin honors requirements"),
+                "Appendix B, Article 1",
+                "Awards & Honors"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Non-Academic Major & Minor Student Awards",
+                "🏆 **Non-Academic Student Awards & Recognition**\n\n" +
+                "• **President's Award for Leadership Excellence**:\n" +
+                "  - Awarded to outstanding student leaders / Supreme Student Council (SSC) President.\n" +
+                "  - Criteria: 20% Organizational Relevance, 30% Student Welfare, 20% Impact, and recommendation.\n" +
+                "• **Athlete of the Year Award**:\n" +
+                "  - Technical performance (70%) + Student achievement/modeling (30%). No derogatory records.\n" +
+                "• **Student Journalist of the Year & Service Award**:\n" +
+                "  - Active contribution in campus publications (min 5 articles/artworks in annuals, editorial board member).\n" +
+                "• **Performance Award for On-the-Job Training**:\n" +
+                "  - Given to students demonstrating exemplary industry performance in OJT/practicum, certified by superior and Dean.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix B, Article 2, 3 & 4*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("awards", "leadership", "athlete", "journalist", "service award", "ojt award", "parangal"),
+                Arrays.asList("student awards", "athlete of the year", "presidents award for leadership", "service award criteria"),
+                "Appendix B, Article 2-4",
+                "Awards & Honors"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Mandatory Drug Testing Program (MDTP) & Student Rights",
+                "🛡️ **Mandatory Drug Testing Program (MDTP) Guidelines**\n\n" +
+                "• **Legal Basis**: RA 9165 (Comprehensive Dangerous Drugs Act) and CHED CMO No. 64 s.2017 / BOR Reso. 1362 s.2017.\n" +
+                "• **Strict Confidentiality**: All test results are strictly confidential. The University shall NEVER publish or post test results.\n" +
+                "• **Non-Incrimination Policy**: Positive confirmatory drug test results shall **NOT be a ground for disciplinary action** or criminal charges, and shall NOT be reflected in academic records.\n" +
+                "• **Intervention for Positive Confirmatory Result**:\n" +
+                "  1. Confidential conference with parents/guardians and Campus Director.\n" +
+                "  2. **40 hours counseling** with the Guidance Counselor.\n" +
+                "  3. Repeat drug testing for six (6) consecutive weeks at accredited DOH facility.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix C, Sec. 1–8*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("drug test", "mdtp", "drugs", "urine", "confirmatory", "counseling", "ra 9165"),
+                Arrays.asList("mandatory drug testing", "drug test policy", "paano drug test sa lspu", "positive sa drug test", "drug testing guidelines"),
+                "Appendix C, Sec. 1-8",
+                "Student Services"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Student Internship Program (SIPP / OJT) Guidelines",
+                "💼 **Student Internship / OJT Program (SIPP) Policies**\n\n" +
+                "• **Legal Basis**: CHED CMO No. 104 s.2017 (Student Internship Program in the Philippines).\n" +
+                "• **Maximum Duration**: Up to a maximum of **five (5) months** in accordance with curriculum.\n" +
+                "• **Intern Eligibility**:\n" +
+                "  1. Officially enrolled in internship subject.\n" +
+                "  2. At least **18 years of age** from the start of the internship.\n" +
+                "  3. Completed and passed all major/professional subjects before deployment.\n" +
+                "  4. Medical Certificate indicating good physical and emotional fitness.\n" +
+                "  5. Notarized written parent/guardian consent (waivers not permitted).\n" +
+                "• **Concurrent Academic Load**: Allowed to take other subjects up to a **maximum of six (6) units only** during the internship period.\n" +
+                "• **Intern Status**: The student is classified as an **intern and not an employee** of the Host Training Establishment (HTE).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix D, Article 1–5*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("internship", "ojt", "sipp", "practicum", "host training", "hte", "intern"),
+                Arrays.asList("ojt requirements", "internship guidelines", "rules sa ojt", "ilang months ang ojt", "parent consent ojt", "sipp guidelines"),
+                "Appendix D, Article 1-5",
+                "Internship"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Mental Health Services Policy & Psychological First Aid",
+                "🧠 **Mental Health Services & Psychological First Aid (PFA)**\n\n" +
+                "• **Legal Basis**: Republic Act No. 11036 (Mental Health Act).\n" +
+                "• **Free Consultation**: The university allocates budget for free psychological/psychiatric consultations for students and employees.\n" +
+                "• **Services Provided**:\n" +
+                "  - Psychological evaluations and mental health counseling at the campus clinic/Guidance Office.\n" +
+                "  - Peer Facilitators Program providing student-to-student support.\n" +
+                "  - Psychological First Aid (PFA) for stabilizing students during crises.\n" +
+                "  - Tele-Web online counseling via accredited platforms.\n" +
+                "• **University Health Risk Management Team (UHRMT)**: Coordinates suicide prevention, safety plans, and confidential re-entry protocols.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix F, Article 1–9*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("mental health", "counseling", "depression", "anxiety", "pfa", "psychological", "guidance"),
+                Arrays.asList("mental health services", "saan pwede magpa counseling", "psychological first aid", "guidance counseling services", "mental health policy"),
+                "Appendix F, Article 1-9",
+                "Student Services"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Student Rights & Responsibilities (Batas Pambansa Blg. 232)",
+                "🕊️ **Student Rights and Duties (Batas Pambansa Blg. 232)**\n\n" +
+                "• **Fundamental Student Rights**:\n" +
+                "  - Right to competent, quality instruction.\n" +
+                "  - Right to freely choose field of study and continue up to graduation.\n" +
+                "  - Right to confidential academic records.\n" +
+                "  - Right to issuance of official credentials (TOR, COR) within thirty (30) days from request.\n" +
+                "  - Right to publish student newspapers and invite assembly resource speakers.\n" +
+                "  - Right to free expression of opinions and channels to administration.\n" +
+                "  - Right to form and join recognized student organizations.\n" +
+                "  - Freedom from involuntary financial contributions.\n" +
+                "• **Key Duties of Students**:\n" +
+                "  - Uphold academic integrity and achieve academic excellence.\n" +
+                "  - Observe university rules of discipline and maintain campus peace.\n" +
+                "  - Exercise rights responsibly with respect for others.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Appendix A, Article 1 & 2*",
+                LocalNanoAIEngine.Intent.RULES_DISCIPLINE,
+                Arrays.asList("rights", "karapatan", "duties", "tungkulin", "batas pambansa", "bp 232", "responsibilities", "student rights", "student duties"),
+                Arrays.asList("student rights", "karapatan ng estudyante", "tungkulin ng estudyante", "rights and obligations of students", "what are the student rights under batas pambansa 232", "student rights under batas pambansa", "student rights and duties"),
+                "Appendix A, Article 1 & 2",
+                "Student Rights"
+        ));
+
+        // =========================================================================
+        // 5. WEATHER SUSPENSIONS & TYPHOON PROTOCOLS (Chapter 6, Art. 5)
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Class Suspension Protocols & Typhoon Signals",
+                "🌧️ **Official Class Suspension Matrix (DepEd/CHED/EO 66)**\n\n" +
+                "• **PAGASA Typhoon Signal No. 1**: Pre-school to Senior High suspended. Tertiary/College classes subject to LGU / University President declaration.\n" +
+                "• **PAGASA Typhoon Signal No. 2**: **Automatic suspension of High School classes**.\n" +
+                "• **PAGASA Typhoon Signal No. 3, 4, 5**: **AUTOMATIC SUSPENSION OF ALL COLLEGE / TERTIARY & GRADUATE CLASSES**.\n" +
+                "• **Heavy Rainfall Alerts (PAGASA / CDRRMO)**:\n" +
+                "  - **Orange Warning**: Threat of flood; classes shifted to online/asynchronous.\n" +
+                "  - **Red Warning**: Torrential rainfall; automatic suspension of in-person classes.\n" +
+                "• **Extreme Heat Index (42°C and above)**: Shift to asynchronous or modular online modality.\n\n" +
+                "🏛️ **Recognized Authorities Declaring Suspensions**:\n" +
+                "1. LSPU University President (Final university-wide authority)\n" +
+                "2. Governor of Laguna (Provincial level)\n" +
+                "3. Mayor of San Pablo City (City LGU level, CMO 34 s.2010)\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 6, Article 5, Sec. 2*",
+                LocalNanoAIEngine.Intent.SUSPENSION,
+                Arrays.asList("signal", "typhoon", "bagyo", "pagasa", "baha", "ulan", "flood", "heat index", "protocol", "signal 1", "signal 2", "signal 3", "suspension", "suspend", "suspended", "classes suspended", "no classes"),
+                Arrays.asList("may pasok ba kapag signal 1", "ano ang suspension protocol", "automatic suspension signal", "sino nag dedeklara ng suspension", "signal 1 may pasok ba", "suspension protocol", "may pasok ba bukas", "are there classes tomorrow", "are classes suspended today", "is there school tomorrow", "do we have classes tomorrow", "class suspension protocol", "typhoon signal suspension"),
+                "Chapter 6, Article 5, Sec. 2",
+                "Suspensions"
+        ));
+
+        // =========================================================================
+        // 6. SCHOLARSHIPS & FINANCIAL ASSISTANCE (Chapter 3 & 5)
+        // =========================================================================
+
         ENTRIES.add(new KnowledgeEntry(
                 "CHED Tulong Dunong Program (TDP) Guidelines",
                 "🎓 **CHED Tulong Dunong Program (TDP-TES)**\n\n" +
@@ -136,49 +722,40 @@ public class CampusKnowledgeBase {
                 "• **Managing Office**: Handled on campus by **OSAS (Office of Student Affairs and Services)**.\n" +
                 "• **Mandatory Validation Documents**:\n" +
                 "  1. Duly accomplished TDP Application / Annex Form\n" +
-                "  2. Certificate of Registration (COR) for the current semester\n" +
-                "  3. Official Grade Slip / True Copy of Grades from previous semester (GWA without failing marks)\n" +
-                "  4. Certificate of Indigency issued by Barangay / Proof of Low Family Income\n" +
+                "  2. Certificate of Registration (COR) for current semester\n" +
+                "  3. Official Grade Slip / True Copy of Grades without failing marks\n" +
+                "  4. Barangay Certificate of Indigency / Proof of Low Family Income\n" +
                 "  5. Valid Student ID (front and back photocopy)\n" +
-                "• **Submission Point**: OSAS Building, LSPU-SPCC. Watch official OSAS announcements for cutoff dates.",
+                "• **Submission Point**: OSAS Building, LSPU-SPCC.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 10 & Chapter 5, Art. 3, Sec. 2*",
                 LocalNanoAIEngine.Intent.SCHOLARSHIP,
-                Arrays.asList("tdp", "ched", "tulong dunong", "stipend", "allowance", "validation", "payout", "qualifiers"),
-                Arrays.asList("tdp requirements", "tdp scholarship", "tdp scholarship requirements", "kailan release ng tdp", "tulong dunong requirements", "paano mag validate ng tdp", "dokumento sa tdp")
+                Arrays.asList("tdp", "ched", "tulong dunong", "stipend", "allowance", "validation", "payout", "qualifiers", "tdp scholarship"),
+                Arrays.asList("tdp requirements", "tdp scholarship", "tdp scholarship requirements", "kailan release ng tdp", "tulong dunong requirements", "paano mag validate ng tdp", "what are the requirements for tdp scholarship", "ched tdp requirements", "how to apply for tdp"),
+                "Chapter 3, Article 10",
+                "Scholarship"
         ));
 
         ENTRIES.add(new KnowledgeEntry(
                 "UniFAST Free Higher Education (RA 10931)",
                 "🆓 **UniFAST Free Higher Education Act (RA 10931)**\n\n" +
                 "• **Coverage**: Covers 100% of tuition, miscellaneous, and mandatory school fees for qualified Filipino undergraduate students in State Universities.\n" +
-                "• **Who is Eligible**: All regular and irregular undergraduate students without an existing bachelor's degree who finish their degree within the prescribed program duration + 1 year grace period.\n" +
+                "• **Eligibility**: Regular and irregular undergraduate students without an existing bachelor's degree finishing within prescribed program duration + 1 year grace period.\n" +
                 "• **Disqualification Conditions**:\n" +
-                "  - Exceeding the maximum residency period\n" +
+                "  - Exceeding the maximum residency period (MRR)\n" +
                 "  - Already holds a bachelor's degree or higher\n" +
-                "  - Failure to meet university retention and admission standards",
+                "  - Failure to meet university retention and admission standards\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 2, Sec. 1.2*",
                 LocalNanoAIEngine.Intent.SCHOLARSHIP,
                 Arrays.asList("unifast", "free tuition", "ra 10931", "matrikula", "libre", "miscellaneous"),
-                Arrays.asList("free tuition policy", "libre ba tuition", "unifast guidelines", "coverage ng free tuition", "may tuition fee ba")
+                Arrays.asList("free tuition policy", "libre ba tuition", "unifast guidelines", "coverage ng free tuition", "may tuition fee ba"),
+                "Chapter 3, Article 2, Sec. 1.2",
+                "Scholarship"
         ));
 
-        ENTRIES.add(new KnowledgeEntry(
-                "Local Government (LGU & Provincial) Scholarships",
-                "🏛️ **Provincial & City Government Educational Assistance**\n\n" +
-                "• **Iskolar ng Laguna (Provincial Capitol)**:\n" +
-                "  - Managed by Provincial Government of Laguna for bonafide provincial residents.\n" +
-                "  - Requirements: Voter's Certificate (student/parents), COR, Grade Slip, Barangay Indigency.\n\n" +
-                "• **San Pablo City LGU Educational Assistance**:\n" +
-                "  - Sponsored by the City Mayor's Office & City Council of San Pablo.\n" +
-                "  - Submit credentials directly to the City Hall Public Assistance / Scholarship Desk.\n\n" +
-                "• **Student Assistantship (SA) Program**:\n" +
-                "  - Work-study opportunity in campus departments (Library, Laboratory, Offices) with monthly allowance.",
-                LocalNanoAIEngine.Intent.SCHOLARSHIP,
-                Arrays.asList("iskolar", "laguna", "san pablo", "lgu", "provincial", "assistantship", "sa", "working student"),
-                Arrays.asList("iskolar ng laguna", "san pablo scholarship", "working student program", "student assistant", "educational assistance")
-        ));
+        // =========================================================================
+        // 7. CAMPUS DIRECTORY, OFFICES & OPERATING HOURS (Chapter 5)
+        // =========================================================================
 
-        // ========================================================
-        // 4. CAMPUS DIRECTORY, OFFICES & OPERATING HOURS
-        // ========================================================
         ENTRIES.add(new KnowledgeEntry(
                 "LSPU San Pablo Campus Directory & Key Offices",
                 "🏢 **LSPU-SPCC Office Directory & Locations**\n\n" +
@@ -186,226 +763,23 @@ public class CampusKnowledgeBase {
                 "  - **Registrar's Office**: Ground Floor (Records, TOR, COR, Enrollment evaluation)\n" +
                 "  - **Cashier & Accounting**: Ground Floor (Fee settlements, receipts, clearance)\n" +
                 "  - **Campus Director's Office**: 2nd Floor\n" +
-                "  - **HR & Administrative Services**: 2nd Floor\n\n" +
+                "  - **HR & Administrative Services**: 2nd Floor\n" +
                 "• **Student Services Building**:\n" +
                 "  - **OSAS (Student Affairs & Scholarships)**: 1st Floor\n" +
-                "  - **Guidance & Counseling Office**: 2nd Floor (Good Moral, mental health, counseling)\n" +
-                "  - **Supreme Student Council (SSC) Headquarters**: 2nd Floor\n\n" +
+                "  - **Guidance & Counseling Office**: 2nd Floor (Good Moral, counseling, excuse slips)\n" +
+                "  - **Supreme Student Council (SSC) Headquarters**: 2nd Floor\n" +
                 "• **Health Services Unit (Campus Clinic)**: Adjacent to Physical Plant Office\n" +
                 "• **Campus Library**: Academic Building 2, 2nd & 3rd Floors\n" +
                 "• **MIS / ICT Center**: Admin Building Annex (Student portal & Wi-Fi support)\n\n" +
-                "⏰ **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed weekends & holidays).",
+                "⏰ **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed weekends & holidays).\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("directory", "saan", "location", "building", "opisina", "office", "registrar", "cashier", "accounting", "guidance"),
-                Arrays.asList("saan ang opisina", "campus directory", "saan ang registrar", "saan ang accounting", "location ng mga office", "registrar location", "saan makikita ang registrar")
+                Arrays.asList("directory", "saan", "location", "building", "opisina", "office", "offices", "where", "registrar", "cashier", "accounting", "guidance", "osas", "clinic", "library", "admin", "mis", "ict", "hours", "office hours", "operating hours"),
+                Arrays.asList("saan ang opisina", "campus directory", "saan ang registrar", "saan ang accounting", "location ng mga office", "registrar location", "saan makikita ang registrar", "where is the registrar", "where is the osas office", "where is the cashier", "where is accounting", "campus directory", "office hours", "registrar office hours", "osas office hours", "where can i find the registrar"),
+                "Chapter 5",
+                "Campus Life"
         ));
 
-        ENTRIES.add(new KnowledgeEntry(
-                "Registrar Office Hours & Services",
-                "🏛️ **LSPU-SPCC Registrar Office Hours & Services**\n\n" +
-                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed on weekends and holidays).\n" +
-                "• **Location**: Ground Floor, Administration Building.\n" +
-                "• **Services Provided**:\n" +
-                "  - Transcript of Records (TOR) & Honorable Dismissal\n" +
-                "  - Certificate of Registration (COR) dry-sealing and validation\n" +
-                "  - Grade evaluation, adding/dropping of subjects, shifting permits\n" +
-                "  - Graduation clearances and diploma verification.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("registrar", "office hours", "oras", "sarado", "bukas", "schedule"),
-                Arrays.asList("registrar office hours", "oras ng registrar", "anong oras bukas ang registrar", "kailan bukas ang registrar", "schedule ng registrar", "office hours registrar")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "OSAS (Office of Student Affairs & Services)",
-                "🏢 **Office of Student Affairs and Services (OSAS)**\n\n" +
-                "• **Location**: 1st Floor, Student Services Building, LSPU-SPCC.\n" +
-                "• **Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
-                "• **Core Responsibilities**:\n" +
-                "  - Scholarship document submission and validation (TDP, CHED, UniFAST)\n" +
-                "  - Student discipline and student grievance handling\n" +
-                "  - Student organization accreditation and activity permits\n" +
-                "  - Insurance and student welfare assistance.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("osas", "student affairs", "services building"),
-                Arrays.asList("saan ang osas", "osas location", "ano ang osas", "office ng scholarship", "saan magpapavalidate", "osas building")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "Health Services Clinic & Emergency Care",
-                "🏥 **Campus Health Services Clinic**\n\n" +
-                "• **Location**: Adjacent to Physical Plant Office, Main Campus.\n" +
-                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
-                "• **Available Services**:\n" +
-                "  - Emergency first aid treatment\n" +
-                "  - Basic health checkups (Blood pressure, temperature, triage)\n" +
-                "  - Over-the-counter medicine for headache, stomach ache, fever\n" +
-                "  - Medical and dental clearance certification for OJT and intramurals\n" +
-                "• **Emergency Note**: For severe incidents, the clinic coordinates immediate transport to the nearest hospital via university emergency vehicle.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("clinic", "health", "first aid", "masakit", "gamot", "dentist", "medical", "clearance", "doktor", "emergency", "nurse"),
-                Arrays.asList("saan ang clinic", "masakit ulo ko", "kumuha ng medical clearance", "clinic services", "may gamot ba sa clinic", "health clinic", "clinic location")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "LSPU San Pablo University Library",
-                "📚 **LSPU-SPCC University Library**\n\n" +
-                "• **Location**: Academic Building 2, 2nd and 3rd Floors.\n" +
-                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (No noon break).\n" +
-                "• **Entry Requirements**: Present your validated Student ID or printed semestral Certificate of Registration (COR).\n" +
-                "• **Sections & Facilities**:\n" +
-                "  - Circulation & Reserve Section (Textbooks and reference borrowing)\n" +
-                "  - Periodicals & Theses Archive Section (Undergraduate research studies)\n" +
-                "  - Electronic Learning Center (Internet research kiosks)\n" +
-                "  - Quiet study zones and reading halls.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("library", "aklatan", "libro", "book", "thesis", "study"),
-                Arrays.asList("library hours", "saan ang library", "oras ng library", "hiram ng libro", "kailan bukas ang library", "library requirements", "university library")
-        ));
-
-        // ========================================================
-        // 5. STUDENT HANDBOOK RULES, DRESS CODE & ID POLICY
-        // ========================================================
-        ENTRIES.add(new KnowledgeEntry(
-                "Uniform Policy, Wash Days & Dress Code",
-                "👔 **LSPU Official Uniform & Dress Code Guidelines**\n\n" +
-                "• **Uniform Days**: Monday, Tuesday, Thursday, and Friday.\n" +
-                "  - Prescribed college uniform with official nameplate, school ID, and closed footwear.\n\n" +
-                "• **Wash / Civilian Days**: Every **Wednesday** and **Saturday**.\n" +
-                "  - Smart casual attire (jeans, polo shirts, decent blouses/t-shirts).\n\n" +
-                "• **Prohibited Attire (Strictly enforced at the gate)**:\n" +
-                "  ❌ Slippers, flip-flops, rubber beach sandals\n" +
-                "  ❌ Sleeveless tops, tank tops, cropped shirts, plunging necklines\n" +
-                "  ❌ Short shorts or micro-mini skirts\n" +
-                "  ❌ Heavily ripped or distressed jeans\n" +
-                "  ❌ Attire with offensive, obscene, or defamatory prints\n\n" +
-                "💡 *Note: Validated school ID must be worn prominently at all times, including wash days.*",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("uniform", "dress code", "civilian", "wash day", "suot", "damit", "shorts", "tsinelas", "slippers"),
-                Arrays.asList("uniform wash day", "kailan wash day", "dress code rules", "pwede ba mag civilian", "anong suot sa wednesday", "bawal ba shorts", "bawal ba tsinelas", "civilian day", "uniform policy", "anong suot bukas")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "Student ID Regulations & Lost ID Replacement",
-                "🪪 **Student ID Regulations & Lost ID Replacement**\n\n" +
-                "• **\"No ID, No Entry\" Policy**: The official university ID with lanyard must be worn around the neck at all times upon entering campus premises.\n\n" +
-                "• **What to do if your ID is Lost**:\n" +
-                "  1. **Affidavit of Loss**: Secure a notarized Affidavit of Loss from a notary public or PAO.\n" +
-                "  2. **OSAS Clearance**: Present the affidavit to OSAS / Campus Security to secure an ID Replacement Slip.\n" +
-                "  3. **Payment**: Pay the ID replacement fee at the University Cashier (Admin Ground Floor).\n" +
-                "  4. **ID Re-issuance**: Submit the receipt and form to the MIS/ICT ID Production Unit.\n" +
-                "  5. **Claiming**: Claim your replacement ID upon scheduled release notification.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("id", "lost id", "nawala", "lanyard", "affidavit", "no id no entry", "replacement"),
-                Arrays.asList("nawala ang id ko", "nawala id ko", "lost id", "how to replace lost id", "no id no entry rule", "paano kumuha ng bagong id", "id replacement procedure", "nawala ang id")
-        ));
-
-        // ========================================================
-        // 6. WEATHER, DISASTER & CLASS SUSPENSION PROTOCOLS
-        // ========================================================
-        ENTRIES.add(new KnowledgeEntry(
-                "Class Suspension Protocols & Typhoon Signals",
-                "🌧️ **Official Class Suspension Matrix (DepEd/CHED/EO 66)**\n\n" +
-                "• **PAGASA Typhoon Signal No. 1**: Pre-school to Senior High suspended. Tertiary/College classes subject to LGU / University President declaration.\n" +
-                "• **PAGASA Typhoon Signal No. 2, 3, 4, 5**: **AUTOMATIC SUSPENSION OF ALL LEVELS**, including College/Tertiary and graduate school. No campus transactions.\n" +
-                "• **Heavy Rainfall Alerts (PAGASA / CDRRMO)**:\n" +
-                "  - **Orange Warning**: Threat of flood; classes may be shifted to online/asynchronous.\n" +
-                "  - **Red Warning**: Torrential rainfall; automatic suspension of in-person classes.\n" +
-                "• **Extreme Heat Index (42°C and above)**: Shift to asynchronous or modular online modality.\n\n" +
-                "🏛️ **Recognized Authorities Declaring Suspensions**:\n" +
-                "1. LSPU University President\n" +
-                "2. Governor of Laguna\n" +
-                "3. Mayor of San Pablo City (LGU San Pablo)",
-                LocalNanoAIEngine.Intent.SUSPENSION,
-                Arrays.asList("signal", "typhoon", "bagyo", "pagasa", "baha", "ulan", "flood", "heat index", "protocol"),
-                Arrays.asList("may pasok ba kapag signal 1", "ano ang suspension protocol", "automatic suspension signal", "sino nag dedeklara ng suspension", "signal 1 may pasok ba", "suspension protocol")
-        ));
-
-        // ========================================================
-        // 7. STUDENT PROCEDURES & HOW-TOS (COR, TOR, CLEARANCE)
-        // ========================================================
-        ENTRIES.add(new KnowledgeEntry(
-                "Certificate of Registration (COR) & Enrollment Verification",
-                "📄 **How to Obtain Your Certificate of Registration (COR)**\n\n" +
-                "1. **Online Portal**: Log in to your student account at `https://lspu.edu.ph/portal`.\n" +
-                "2. **Enrollment Tab**: Navigate to *Registration / Enrolled Subjects*.\n" +
-                "3. **Print Official Copy**: Print your semestral COR on clean letter-sized bond paper.\n" +
-                "4. **Validation Stamp**: For scholarship or CHED validation, bring the printed COR to the Registrar's Office for dry seal / official validation stamp.",
-                LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("cor", "registration", "certificate of registration", "enrolled", "print cor"),
-                Arrays.asList("paano kumuha ng cor", "where to get cor", "how to print cor", "certificate of registration copy", "print certificate of registration", "makakuha ng cor")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "Transcript of Records (TOR) & Honorable Dismissal",
-                "📜 **Requesting Transcript of Records (TOR) & Honorable Dismissal**\n\n" +
-                "1. **Clearance**: Secure a University Clearance Form from the Registrar's Office.\n" +
-                "2. **Department Signatures**: Obtain clearance signatures from College Dean, Library, Clinic, Cashier, and OSAS.\n" +
-                "3. **Payment**: Pay the TOR / Honorable Dismissal processing fee at the Cashier.\n" +
-                "4. **Filing**: Submit the accomplished clearance and official receipt to the Registrar's Office Records Window.\n" +
-                "5. **Processing Period**: Regular processing takes 7 to 15 working days.",
-                LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("tor", "transcript", "records", "honorable dismissal", "clearance", "bayad", "request tor"),
-                Arrays.asList("paano kumuha ng tor", "transcript of records request", "honorable dismissal process", "requesting tor", "kumuha ng transcript")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "Certificate of Good Moral Character Request",
-                "🕊️ **Requesting Certificate of Good Moral Character**\n\n" +
-                "• **Issuing Office**: Guidance and Counseling Center (2nd Floor, Student Services Building).\n" +
-                "• **Procedure**:\n" +
-                "  1. Secure a Good Moral Request Slip from the Guidance Office.\n" +
-                "  2. Pay the document fee (₱50) at the University Cashier (Admin Building Ground Floor).\n" +
-                "  3. Present the official receipt and your student ID to the Guidance Counselor.\n" +
-                "  4. The certificate is typically released within 1 to 2 business days after records verification.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("good moral", "moral", "guidance", "character"),
-                Arrays.asList("paano kumuha ng good moral", "where to get good moral", "good moral requirements", "magkano good moral", "good moral request", "kumuha ng good moral")
-        ));
-
-        // ========================================================
-        // 8. UNIVERSITY LEADERSHIP & STUDENT PORTAL
-        // ========================================================
-        ENTRIES.add(new KnowledgeEntry(
-                "LSPU Administration & Key University Officials",
-                "🏛️ **LSPU University Leadership & Administration**\n\n" +
-                "• **University President**: **Dr. Mario R. Briones** (Office of the University President)\n" +
-                "• **SPCC Campus Leadership**: Guided by the Campus Director and Academic Deans\n" +
-                "• **Student Government**: Federated Supreme Student Council (FSSC) & Supreme Student Council (SSC SPCC)\n" +
-                "• **Deans Offices**: Located in their respective college buildings (CCS in Computer Studies Bldg, CTE in Education Bldg, etc.).",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("president", "presidente", "official", "officials", "chancellor", "briones", "namumuno"),
-                Arrays.asList("who is the president", "sino ang presidente", "university president", "sino namumuno sa lspu", "president of lspu", "sino ang pangulo")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "LSPU Student Portal & MIS/ICT Support",
-                "🌐 **LSPU Student Portal & Online Connectivity**\n\n" +
-                "• **Student Portal URL**: `https://lspu.edu.ph/portal`\n" +
-                "• **Portal Services**: View verified semestral grades, download Certificate of Registration (COR), and check student account balance.\n" +
-                "• **Account & Password Reset**: Visit the MIS/ICT Unit (Administration Building Annex) or submit a help ticket with your student ID.\n" +
-                "• **Campus Wi-Fi**: Available in designated academic zones; obtain student credentials at the MIS Unit.",
-                LocalNanoAIEngine.Intent.CAMPUS_INFO,
-                Arrays.asList("portal", "wifi", "internet", "password", "grades online", "ict", "mis"),
-                Arrays.asList("student portal", "paano buksan ang portal", "portal link", "forgot password portal", "campus wifi", "online portal")
-        ));
-
-        ENTRIES.add(new KnowledgeEntry(
-                "Adding/Dropping, Subject Enrolment & Shifting Procedure",
-                "📋 **Adding, Dropping & Course Shifting Procedures**\n\n" +
-                "• **Adding/Dropping Period**: Typically held during the first two (2) weeks of the semester.\n" +
-                "• **Procedure**:\n" +
-                "  1. Secure an Adding/Dropping Form from the Registrar's Office.\n" +
-                "  2. Secure written approval from the Department Chairperson and College Dean.\n" +
-                "  3. Submit the accomplished form to the Registrar for system schedule updating.\n" +
-                "• **Shifting Programs**: Requires clearance from current college, passing of interview/assessment in target college, and minimum GWA evaluation.",
-                LocalNanoAIEngine.Intent.ACADEMICS,
-                Arrays.asList("adding", "dropping", "shifting", "shift", "drop subject", "add subject"),
-                Arrays.asList("paano mag drop", "paano mag shift", "adding and dropping", "shifting requirements", "drop ng subject")
-        ));
-
-        // ========================================================
-        // 9. EMERGENCY CONTACTS & SAN PABLO CITY HOTLINES
-        // ========================================================
         ENTRIES.add(new KnowledgeEntry(
                 "San Pablo City Emergency Hotlines & Disaster Contacts",
                 "🚨 **San Pablo City & Campus Emergency Hotlines**\n\n" +
@@ -415,11 +789,121 @@ public class CampusKnowledgeBase {
                 "• **San Pablo Bureau of Fire Protection (BFP)**: (049) 562-7654 / 0915-602-2144\n" +
                 "• **San Pablo City General Hospital**: (049) 562-0268\n" +
                 "• **Philippine Red Cross - San Pablo Chapter**: (049) 562-4069\n" +
-                "• **LSPU Campus Security Guardhouse**: Main Campus Entrance Post",
+                "• **LSPU Campus Security Guardhouse**: Main Campus Entrance Post\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Emergency Directory*",
                 LocalNanoAIEngine.Intent.CAMPUS_INFO,
                 Arrays.asList("emergency", "hotline", "saklolo", "pulis", "police", "fire", "bombero", "cdrrmo", "hospital", "red cross", "rescue"),
-                Arrays.asList("emergency numbers", "hotline ng san pablo", "police hotline", "rescue number", "emergency hotlines", "emergency contact")
+                Arrays.asList("emergency numbers", "hotline ng san pablo", "police hotline", "rescue number", "emergency hotlines", "emergency contact"),
+                "Emergency Directory",
+                "Campus Life"
         ));
+        // =========================================================================
+        // 8. ADMISSIONS & STUDENT SERVICES (Clinic, Library, Guidance & Good Moral)
+        // =========================================================================
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Undergraduate Admission, Board Program Standards & English Requirements",
+                "📋 **Undergraduate Admission & General Weighted Average (GWA) Requirements**\n\n" +
+                "• **Free Higher Education (UniFAST RA 10687)**: Exemption from tuition and other school fees for eligible undergraduate students.\n" +
+                "• **Non-discriminatory Admission**: Equal opportunity for all regardless of age, sex, gender, nationality, belief, political affiliation, PWDs, indigenous peoples, solo parents.\n" +
+                "• **Priority Course GWA Requirements (Form 138)**:\n" +
+                "  - **GWA 85 and above**: Accountancy, Engineering, Nursing, Information Technology, Psychology, Biology, Mathematics, Criminology, Agriculture, Teacher Education, and other Board Programs.\n" +
+                "  - **GWA 82 and above**: Hotel and Restaurant Management, Tourism, Industrial Technology.\n" +
+                "• **Board Examination Subject Rule / English Proficiency Check**:\n" +
+                "  - Students entering board programs must not have a grade below **85 in English, Science, and Mathematics**.\n" +
+                "  - Grade verification is conducted during admission screening and entrance evaluation.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 3, Article 2, Sec. 1-2 & 2.6*",
+                LocalNanoAIEngine.Intent.ACADEMICS,
+                Arrays.asList("admission", "admissions", "entrance", "gwa", "unifast", "form 138", "board programs", "board program", "english", "science", "mathematics", "proficiency", "85", "82", "admission requirements"),
+                Arrays.asList("admission requirements", "english proficiency check", "english grade requirement", "board program english requirement", "english proficiency requirement", "gwa requirement for admission", "form 138 grade requirement", "entrance exam requirements", "grade below 85 in english", "english requirement"),
+                "Chapter 3, Article 2, Sec. 1-2 & 2.6",
+                "Academics"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Health Services Unit (Campus Clinic) & Medical Services",
+                "🏥 **Health Services Unit (Campus Clinic) & Medical Services**\n\n" +
+                "• **Location**: Adjacent to the Physical Plant Office.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM (Closed on weekends and holidays).\n" +
+                "• **Available Services**:\n" +
+                "  - Basic outpatient consultations and medical assessment\n" +
+                "  - Emergency first aid treatment and crisis stabilization\n" +
+                "  - Issuance of Medical Certificates for Excuse Slips and OJT deployment\n" +
+                "  - Annual physical checkups and health monitoring\n" +
+                "  - Free basic over-the-counter emergency medications\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 4, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("clinic", "health", "medical", "doctor", "nurse", "first aid", "gamot", "pagamutan", "med cert", "medical certificate", "checkup", "emergency", "sick", "illness", "health services"),
+                Arrays.asList("where is the clinic", "clinic hours", "campus clinic location", "where to find clinic", "what time does clinic open", "medical certificate clinic", "clinic schedule", "health services unit", "saan ang clinic", "oras ng clinic"),
+                "Chapter 5, Article 4, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "University Campus Library Services, Book Borrowing & Hours",
+                "📚 **LSPU Campus Library Services & Borrowing Policies**\n\n" +
+                "• **Location**: Academic Building 2, 2nd & 3rd Floors.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
+                "• **Library Sections & Resources**:\n" +
+                "  - Circulation & Reserve Section (Textbooks, general reference)\n" +
+                "  - Theses & Dissertations / Special Collections\n" +
+                "  - Electronic Library (E-Library) & Internet Research Stations\n" +
+                "  - Periodicals & Serials Section (Journals, newspapers, magazines)\n" +
+                "• **Access & Requirements**: Valid LSPU Student ID with lanyard or Library Card is required for entry and borrowing.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 5, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("library", "books", "borrow", "reading", "study", "theses", "archives", "e-library", "aklatan", "hiram", "libro", "library card", "circulation"),
+                Arrays.asList("where is the library", "library hours", "what time does the library open", "campus library location", "borrow books from library", "library opening hours", "where to find library", "library schedule", "saan ang library", "oras ng library"),
+                "Chapter 5, Article 5, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "Guidance and Counseling Center: Good Moral Certificate & Support",
+                "🧭 **Guidance & Counseling Center & Good Moral Issuance**\n\n" +
+                "• **Location**: 2nd Floor, Student Services Building.\n" +
+                "• **Operating Hours**: Monday to Friday, 8:00 AM – 5:00 PM.\n" +
+                "• **Services Provided**:\n" +
+                "  - **Certificate of Good Moral Character**: Official issuance for scholarships, employment, transfer, and board examinations.\n" +
+                "  - **Excuse Slips**: Validation and endorsement of excuse slips for class absences.\n" +
+                "  - **Individual & Group Counseling**: Confidential psychological counseling and emotional support.\n" +
+                "  - **Appraisal & Testing**: Psychological testing and personality evaluations.\n\n" +
+                "📖 *Ref: LSPU Student Handbook 2021, Chapter 5, Article 3, Sec. 1*",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("guidance", "good moral", "certificate of good moral", "counseling", "counselor", "excuse slip", "moral character", "good moral certificate", "moral"),
+                Arrays.asList("how to get good moral certificate", "where to get good moral", "good moral requirements", "how to get a good moral certificate", "certificate of good moral", "good moral certificate procedure", "where is guidance office", "guidance counseling", "paano kumuha ng good moral", "saan kukuha ng good moral"),
+                "Chapter 5, Article 3, Sec. 1",
+                "Campus Life"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "CCSOCTA (College of Computer Studies - Organization of Computer Technology Advocates)",
+                "🏢 **CCSOCTA (College of Computer Studies - Organization of Computer Technology Advocates)**\n\n" +
+                "• **Overview**: The official student organization of the College of Computer Studies (CCS) at Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
+                "• **Scope**: Represents BS Information Technology (BSIT) and computer studies students, organizing tech events, coding competitions (e.g. CodeChum National Programming Challenge, Tech Week), general assemblies, and peer academic support.\n" +
+                "• **Official Facebook**: https://www.facebook.com/CCSOCTA\n" +
+                "• **Email**: octa_spc@lspu.edu.ph",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("octa", "ccsocta", "ccs octa", "computer studies", "bsit org", "computer technology advocates"),
+                Arrays.asList("ano ang octa", "what is octa", "ano ang ccsocta", "what is ccsocta", "ccs student org", "octa lspu", "octa organization", "sino ang octa", "who is octa", "what is ccsocta org"),
+                "LSPU-SPCC Student Organizations Directory",
+                "Student Affairs"
+        ));
+
+        ENTRIES.add(new KnowledgeEntry(
+                "The Technology Advocate (TechAd) - Official Student Publication",
+                "📰 **The Technology Advocate (TechAd)**\n\n" +
+                "• **Overview**: The official student journalism organization and campus publication of Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC).\n" +
+                "• **Scope**: Reports university-wide and campus news, editorial opinions, student achievements, feature stories, and media coverage (e.g. Editorial Board Examinations, academic seminars, campus events).\n" +
+                "• **Official Facebook**: https://www.facebook.com/techadspc\n" +
+                "• **Press Recognition**: Regularly competes and clinches awards in regional and university press conferences.",
+                LocalNanoAIEngine.Intent.CAMPUS_INFO,
+                Arrays.asList("techad", "tech ad", "the technology advocate", "technology advocate", "student publication", "school paper", "campus paper", "journalism"),
+                Arrays.asList("ano ang techad", "what is techad", "ano ang tech ad", "what is tech ad", "official student publication", "school publication", "the technology advocate", "techad lspu", "sino ang techad", "who is techad", "what is the technology advocate"),
+                "LSPU-SPCC Campus Publications",
+                "Student Affairs"
+        ));
+
     }
 
     /**
@@ -432,7 +916,7 @@ public class CampusKnowledgeBase {
         }
 
         String q = query.toLowerCase(Locale.ROOT).trim();
-        String cleanQ = q.replaceAll("[^a-z0-9\\s]", " ");
+        String cleanQ = q.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
 
         KnowledgeEntry bestEntry = null;
         int maxScore = 0;
@@ -442,8 +926,8 @@ public class CampusKnowledgeBase {
 
             // 1. Exact phrase matches (High weight +10)
             for (String phrase : entry.keyPhrases) {
-                String cleanPhrase = phrase.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9\\s]", " ");
-                if (q.contains(phrase) || cleanQ.contains(cleanPhrase)) {
+                String cleanPhrase = phrase.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+                if (q.contains(phrase.toLowerCase(Locale.ROOT)) || (!cleanPhrase.isEmpty() && cleanQ.contains(cleanPhrase))) {
                     score += 10;
                     break;
                 }
@@ -456,9 +940,9 @@ public class CampusKnowledgeBase {
                 }
             }
 
-            // 3. Intent alignment bonus (+2)
+            // 3. Intent alignment bonus (+3)
             if (entry.intent == detectedIntent && detectedIntent != LocalNanoAIEngine.Intent.UNKNOWN) {
-                score += 2;
+                score += 3;
             }
 
             if (score > maxScore && score >= 4) {
@@ -473,12 +957,18 @@ public class CampusKnowledgeBase {
     private static boolean matchesWord(String text, String word) {
         if (text == null || word == null) return false;
         String t = text.toLowerCase(Locale.ROOT);
-        String w = word.toLowerCase(Locale.ROOT);
-        if (w.length() <= 3) {
-            Pattern p = Pattern.compile("\\b" + Pattern.quote(w) + "\\b");
-            return p.matcher(t).find();
+        String w = word.toLowerCase(Locale.ROOT).trim();
+        if (w.isEmpty()) return false;
+        boolean startWordBoundary = Character.isLetterOrDigit(w.charAt(0));
+        boolean endWordBoundary = Character.isLetterOrDigit(w.charAt(w.length() - 1));
+        String patternStr = (startWordBoundary ? "\\b" : "") +
+                Pattern.quote(w) +
+                (endWordBoundary ? "\\b" : "");
+        try {
+            return Pattern.compile(patternStr).matcher(t).find();
+        } catch (Exception e) {
+            return t.contains(w);
         }
-        return t.contains(w);
     }
 
     /**
@@ -486,5 +976,9 @@ public class CampusKnowledgeBase {
      */
     public static int getEntryCount() {
         return ENTRIES.size();
+    }
+
+    public static List<KnowledgeEntry> getAllEntries() {
+        return Collections.unmodifiableList(ENTRIES);
     }
 }

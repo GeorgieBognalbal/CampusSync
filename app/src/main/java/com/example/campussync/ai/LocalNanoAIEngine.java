@@ -28,16 +28,17 @@ import java.util.regex.Pattern;
 public class LocalNanoAIEngine {
 
     public enum Intent {
-        SUSPENSION,  // Class suspensions, weather advisories, typhoon signals
-        SCHOLARSHIP, // TDP, CHED, UniFAST, OSAS validation, payouts, grants
-        ACADEMICS,   // Exams, grading, enrollment, permits, schedules
-        EVENTS,      // Campus activities, student council, assemblies, intrams
-        CAMPUS_INFO, // Registrar hours, OSAS location, clinic, library, dress code, officials
-        GREETING,    // Conversational greetings (hi, hello, magandang umaga, kamusta)
-        GRATITUDE,   // Thanks, salamat, appreciation
-        IDENTITY,    // Bot identity, capabilities, hackathon background
-        GENERAL,     // General help, overview
-        UNKNOWN      // Fallback when no match is found
+        SUSPENSION,        // Class suspensions, weather advisories, typhoon signals
+        SCHOLARSHIP,       // TDP, CHED, UniFAST, OSAS validation, payouts, grants
+        ACADEMICS,         // Exams, grading, enrollment, permits, schedules
+        EVENTS,            // Campus activities, student council, assemblies, intrams
+        CAMPUS_INFO,       // Registrar hours, OSAS location, clinic, library, dress code, officials
+        RULES_DISCIPLINE,  // Student handbook offenses, sanctions, cheating, dress code, haircut, MRR
+        GREETING,          // Conversational greetings (hi, hello, magandang umaga, kamusta)
+        GRATITUDE,         // Thanks, salamat, appreciation
+        IDENTITY,          // Bot identity, capabilities, hackathon background
+        GENERAL,           // General help, overview
+        UNKNOWN            // Fallback when no match is found
     }
 
     public static class NanoAIResult {
@@ -46,14 +47,21 @@ public class LocalNanoAIEngine {
         public final float confidence;
         public final AnnouncementEntity primarySource;
         public final boolean isOfflineAnswer;
+        public final String handbookCitation;
 
         public NanoAIResult(String answer, Intent intent, float confidence, 
                             AnnouncementEntity source, boolean isOffline) {
+            this(answer, intent, confidence, source, isOffline, null);
+        }
+
+        public NanoAIResult(String answer, Intent intent, float confidence, 
+                            AnnouncementEntity source, boolean isOffline, String citation) {
             this.answer = answer;
             this.detectedIntent = intent;
             this.confidence = confidence;
             this.primarySource = source;
             this.isOfflineAnswer = isOffline;
+            this.handbookCitation = citation;
         }
     }
 
@@ -122,6 +130,138 @@ public class LocalNanoAIEngine {
             "kayo", "tayo", "natin", "doon", "dito", "meron", "may"
     ));
 
+    /** Comprehensive vocabulary of LSPU campus terms, departments, student procedures, and programs */
+    private static final String[] LSPU_DOMAIN_KEYWORDS = {
+            // University & Campus
+            "lspu", "spcc", "laguna", "san pablo", "campus", "university", "pamantasan",
+            "unibersidad", "school", "eskwela", "iskwela", "college", "colleges",
+            "iskolar ng bayan", "padayon", "tatak lspu", "iskolar",
+            // Colleges & Units
+            "ccs", "cte", "cbma", "coe", "cit", "cas", "ccje", "cba", "chmt",
+            "coesc", "octa", "ssc", "student council", "council",
+            // Programs & Majors
+            "bsit", "bscs", "bsed", "beed", "bsba", "bsa", "bsce", "bsme", "bsee", "bscpe",
+            "bit", "bacomm", "bsmath", "bscrim", "btled", "beced", "course", "courses",
+            "program", "programs", "kurso", "degree", "curriculum", "major", "undergrad",
+            // Academics & Grading
+            "grade", "grades", "grading", "passing", "gpa", "gwa", "inc", "incomplete",
+            "removal", "tres", "singko", "uno", "deans list", "dean's list", "latin honor",
+            "cum laude", "magna", "summa", "cor", "tor", "transcript", "clearance",
+            "shifting", "shift", "dropping", "drop", "enroll", "enrollment", "enrol", "enrolment",
+            "admission", "lcat", "entrance exam", "qualifying", "retention", "mrr",
+            "maximum residency", "midterm", "exam", "finals", "examination", "subject", "subjects",
+            "unit", "units", "prerequisite", "thesis", "capstone", "ojt", "sipp", "internship",
+            "practicum", "graduation", "graduate", "diploma", "honorable dismissal",
+            // Campus Facilities & Locations
+            "registrar", "osas", "clinic", "library", "aklatan", "guidance", "cashier",
+            "accounting", "mis", "ict", "security", "guard", "gate", "admin building",
+            "canteen", "gym", "gymnasium", "auditorium", "function hall", "laboratory",
+            "lab", "classroom", "comfort room", "cr",
+            // Attire, ID, Rules & Discipline
+            "uniform", "wash day", "washday", "civilian", "suot", "damit", "haircut",
+            "gupit", "buhok", "id", "lanyard", "sticker", "lost id", "validation",
+            "handbook", "policy", "policies", "rule", "rules", "guideline", "guidelines",
+            "conduct", "discipline", "cheating", "cheat", "kodigo", "offense", "sanction",
+            "parusa", "violation", "curfew", "bawal",
+            // Financial & Scholarships
+            "scholarship", "scholarships", "tdp", "tulong dunong", "ched", "unifast",
+            "tes", "allowance", "stipend", "grant", "tuition", "fee", "fees",
+            "free tuition", "billing", "assessment",
+            // Suspensions, Weather & Events
+            "pasok", "klase", "suspend", "suspension", "walang pasok", "may pasok",
+            "bagyo", "typhoon", "signal", "ulan", "baha", "weather", "pagasa",
+            "advisory", "announcement", "post", "event", "events", "intramurals",
+            "intrams", "seminar", "webinar", "contest", "assembly", "calendar",
+            // Portal & Student Inquiries
+            "portal", "password", "account", "login", "student number", "good moral",
+            // Personnel & Administration
+            "president", "presidente", "briones", "campus director", "dean", "director",
+            "professor", "prof", "instructor", "teacher", "chancellor"
+    };
+
+    /**
+     * Standard query check: Strictly validates that the query is related to
+     * Laguna State Polytechnic University (LSPU-SPCC), campus operations, academics, student welfare, or polite chitchat.
+     */
+    public boolean isLspuRelated(String query, List<AnnouncementEntity> cachedPosts) {
+        if (query == null) return false;
+        String q = query.toLowerCase(Locale.ROOT).trim();
+        if (q.isEmpty()) return false;
+
+        // 1. Conversational chitchat & Bot Identity (always accepted)
+        Intent intent = detectIntent(q);
+        if (intent == Intent.GREETING || intent == Intent.GRATITUDE ||
+                intent == Intent.IDENTITY || intent == Intent.GENERAL) {
+            return true;
+        }
+
+        // 2. Direct university / campus naming
+        if (q.contains("lspu") || q.contains("spcc") || q.contains("laguna state") ||
+                q.contains("san pablo") || q.contains("iskolar ng bayan") ||
+                q.contains("tatak lspu") || q.contains("padayon")) {
+            return true;
+        }
+
+        // 3. Known domain intents (Suspension, Academics, Scholarship, Campus Info, Events, Rules)
+        if (intent != Intent.UNKNOWN) {
+            return true;
+        }
+
+        // 4. Keyword verification against LSPU domain dictionary
+        if (containsAnyKeyword(q, LSPU_DOMAIN_KEYWORDS)) {
+            return true;
+        }
+
+        // 5. Verification against Static Campus Knowledge Base triggers
+        if (CampusKnowledgeBase.findBestMatch(q, intent) != null) {
+            return true;
+        }
+
+        // 6. Dynamic verification against synced campus announcements in Room DB
+        if (cachedPosts != null && !cachedPosts.isEmpty()) {
+            List<String> queryTokens = extractTokens(q);
+            for (String token : queryTokens) {
+                if (token.length() >= 4) {
+                    for (AnnouncementEntity post : cachedPosts) {
+                        if (post.message != null && post.message.toLowerCase(Locale.ROOT).contains(token)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean containsAnyKeyword(String text, String[] keywords) {
+        if (text == null || keywords == null) return false;
+        for (String kw : keywords) {
+            if (matchesWord(text, kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Standard rejection response for queries outside the LSPU campus domain.
+     */
+    public NanoAIResult buildOutOfScopeResult(String query) {
+        return new NanoAIResult(
+                "⚠️ **LSPU Campus Inquiries Only**\n\n" +
+                "I am **Kaleo**, an AI assistant dedicated exclusively to **Laguna State Polytechnic University - San Pablo City Campus (LSPU-SPCC)**.\n\n" +
+                "I can only answer questions related to our campus, such as:\n" +
+                "• 🏛️ **Campus Announcements**: Class suspensions, weather advisories, events\n" +
+                "• 📚 **Academics**: Course offerings, grading scale, INC resolution, honors\n" +
+                "• 🏢 **Offices & Services**: Registrar, OSAS, Library, Clinic, ICT/MIS\n" +
+                "• 🎓 **Scholarships & Portal**: TDP, CHED, UniFAST, student portal logins\n" +
+                "• ⚖️ **Student Handbook**: Uniform rules, wash days, code of conduct\n\n" +
+                "*Please ask a question related to LSPU-SPCC!*",
+                Intent.UNKNOWN, 0.99f, null, true
+        );
+    }
+
     /**
      * Executes the on-device RAG resolution in <15ms.
      * 1. Check conversational chitchat (Greeting, Gratitude, Identity)
@@ -137,6 +277,11 @@ public class LocalNanoAIEngine {
                     "Kamusta! Mag-type ng tanong tungkol sa class suspensions, scholarships (TDP/CHED), exam dates, o campus rules.",
                     Intent.UNKNOWN, 0.0f, null, true
             );
+        }
+
+        // Standard LSPU Query Check: Enforce campus domain boundary
+        if (!isLspuRelated(userQuery, cachedPosts)) {
+            return buildOutOfScopeResult(userQuery);
         }
 
         String normalizedQuery = userQuery.toLowerCase(Locale.ROOT).trim();
@@ -168,13 +313,13 @@ public class LocalNanoAIEngine {
 
         if (detectedIntent == Intent.GENERAL) {
             return new NanoAIResult(
-                    "Hello! I am Kaleo, your offline-first campus companion. Here's what you can ask me:\n\n" +
-                    "• 🌧️ **Class Suspensions**: *\"May pasok ba bukas?\"* or *\"Signal 1 suspension protocol\"*\n" +
+                    "Hello! I am Kaleo, your offline-first campus companion. Grounded in the **LSPU Student Handbook 2021** & official campus announcements, here's what you can ask me:\n\n" +
+                    "• ⚖️ **Code of Conduct & Discipline**: *\"Ano parusa sa cheating?\"*, *\"Dress code & prohibited attire\"*, *\"Male haircut rules\"*\n" +
+                    "• 📚 **Academics & Grading**: *\"Ano passing grade?\"*, *\"Removal ng 4.00\"*, *\"Paano maayos ang INC?\"*, *\"Maximum residency rule (MRR)\"*\n" +
+                    "• 🎖️ **Honors & Awards**: *\"Latin honors criteria (Cum Laude)\"*, *\"Mandatory tree planting\"*\n" +
                     "• 🎓 **Scholarships**: *\"TDP requirements & deadline\"* or *\"UniFAST / Free tuition policy\"*\n" +
-                    "• 📚 **Academics & Grading**: *\"Ano passing grade?\"*, *\"Paano maayos ang INC?\"*, or *\"Dean's list GWA\"*\n" +
-                    "• 🏛️ **Programs & Courses**: *\"Courses offered in CCS\"* or *\"LSPU college degrees\"*\n" +
-                    "• 👔 **Student Rules**: *\"Uniform guidelines & wash days\"* or *\"Nawala ang ID ko\"*\n" +
-                    "• 🏢 **Campus Directory**: *\"Saan ang OSAS / Clinic / Registrar?\"* or *\"Emergency hotlines\"*",
+                    "• 💼 **Internships & Welfare**: *\"OJT / SIPP guidelines\"*, *\"Mandatory drug testing\"*, *\"Mental health counseling\"*\n" +
+                    "• 🌧️ **Class Suspensions**: *\"May pasok ba bukas?\"* or *\"Signal 1 suspension protocol\"*",
                     Intent.GENERAL, 0.98f, null, true
             );
         }
@@ -182,27 +327,47 @@ public class LocalNanoAIEngine {
         // --- 2. Knowledge Base Priority for Static Guidance / Rules Queries ---
         CampusKnowledgeBase.KnowledgeEntry kbEntry = CampusKnowledgeBase.findBestMatch(normalizedQuery, detectedIntent);
         boolean isStaticGuidanceQuery = (detectedIntent == Intent.CAMPUS_INFO) ||
+                (detectedIntent == Intent.RULES_DISCIPLINE) ||
                 normalizedQuery.contains("grading") || normalizedQuery.contains("passing") ||
                 normalizedQuery.contains("inc") || normalizedQuery.contains("deans list") ||
                 normalizedQuery.contains("dean's list") || normalizedQuery.contains("honor") ||
-                normalizedQuery.contains("tor") || normalizedQuery.contains("cor") ||
-                normalizedQuery.contains("unifast") || normalizedQuery.contains("good moral") ||
-                normalizedQuery.contains("saan") || normalizedQuery.contains("hours") ||
-                normalizedQuery.contains("oras") || normalizedQuery.contains("president") ||
-                normalizedQuery.contains("presidente") || normalizedQuery.contains("course") ||
-                normalizedQuery.contains("program") || normalizedQuery.contains("kurso") ||
-                normalizedQuery.contains("tdp") || normalizedQuery.contains("tulong dunong") ||
-                normalizedQuery.contains("requirement") || normalizedQuery.contains("policy") ||
-                normalizedQuery.contains("guideline") || normalizedQuery.contains("protocol") ||
-                normalizedQuery.contains("hotline") || normalizedQuery.contains("emergency");
+                normalizedQuery.contains("cum laude") || normalizedQuery.contains("magna") ||
+                normalizedQuery.contains("summa") || normalizedQuery.contains("tor") ||
+                normalizedQuery.contains("cor") || normalizedQuery.contains("unifast") ||
+                normalizedQuery.contains("good moral") || normalizedQuery.contains("saan") ||
+                normalizedQuery.contains("hours") || normalizedQuery.contains("oras") ||
+                normalizedQuery.contains("president") || normalizedQuery.contains("presidente") ||
+                normalizedQuery.contains("course") || normalizedQuery.contains("program") ||
+                normalizedQuery.contains("kurso") || normalizedQuery.contains("tdp") ||
+                normalizedQuery.contains("tulong dunong") || normalizedQuery.contains("requirement") ||
+                normalizedQuery.contains("policy") || normalizedQuery.contains("guideline") ||
+                normalizedQuery.contains("protocol") || normalizedQuery.contains("hotline") ||
+                normalizedQuery.contains("emergency") || normalizedQuery.contains("cheat") ||
+                normalizedQuery.contains("kodigo") || normalizedQuery.contains("parusa") ||
+                normalizedQuery.contains("sanction") || normalizedQuery.contains("offense") ||
+                normalizedQuery.contains("haircut") || normalizedQuery.contains("gupit") ||
+                normalizedQuery.contains("hikaw") || normalizedQuery.contains("earrings") ||
+                normalizedQuery.contains("tattoo") || normalizedQuery.contains("bawal") ||
+                normalizedQuery.contains("shorts") || normalizedQuery.contains("tsinelas") ||
+                normalizedQuery.contains("mrr") || normalizedQuery.contains("residency") ||
+                normalizedQuery.contains("overload") || normalizedQuery.contains("tree planting") ||
+                normalizedQuery.contains("seedlings") || normalizedQuery.contains("refund") ||
+                normalizedQuery.contains("4.00") || normalizedQuery.contains("conditional") ||
+                normalizedQuery.contains("ojt") || normalizedQuery.contains("internship") ||
+                normalizedQuery.contains("mental health") || normalizedQuery.contains("counseling") ||
+                normalizedQuery.contains("drug test") || normalizedQuery.contains("excuse slip") ||
+                normalizedQuery.contains("lgbt") || normalizedQuery.contains("transgender") ||
+                normalizedQuery.contains("smoking") || normalizedQuery.contains("yosi") ||
+                normalizedQuery.contains("littering") || normalizedQuery.contains("basura");
 
         if (kbEntry != null && isStaticGuidanceQuery) {
             return new NanoAIResult(
                     kbEntry.content,
                     kbEntry.intent != null ? kbEntry.intent : detectedIntent,
-                    0.96f,
+                    0.98f,
                     null,
-                    true
+                    true,
+                    kbEntry.citation
             );
         }
 
@@ -253,7 +418,8 @@ public class LocalNanoAIEngine {
                     kbEntry.intent != null ? kbEntry.intent : detectedIntent,
                     0.95f,
                     null,
-                    true
+                    true,
+                    kbEntry.citation
             );
         }
 
@@ -283,6 +449,11 @@ public class LocalNanoAIEngine {
     public NanoAIResult processHybridQuery(String userQuery,
                                           List<AnnouncementEntity> cachedPosts,
                                           CloudFallbackProvider cloudProvider) {
+        // Standard LSPU Query Check: Enforce campus domain boundary
+        if (!isLspuRelated(userQuery, cachedPosts)) {
+            return buildOutOfScopeResult(userQuery);
+        }
+
         // 1. Defaults to Cloud AI first when device is online
         if (cloudProvider != null && cloudProvider.isOnline()) {
             NanoAIResult localCandidate = processQuery(userQuery, cachedPosts);
@@ -349,6 +520,26 @@ public class LocalNanoAIEngine {
             return Intent.SUSPENSION;
         }
 
+        // Code of Conduct & Student Handbook Rules / Discipline
+        if (q.contains("cheat") || q.contains("cheating") || q.contains("kodigo") ||
+                q.contains("parusa") || q.contains("sanction") || q.contains("offense") ||
+                q.contains("disciplinary") || q.contains("discipline") || q.contains("due process") ||
+                q.contains("weapon") || q.contains("patalim") || q.contains("baril") ||
+                q.contains("assault") || q.contains("suntukan") || q.contains("away") ||
+                q.contains("bullying") || q.contains("cyberbullying") || q.contains("hacking") ||
+                q.contains("smoking") || q.contains("yosi") || q.contains("sigarilyo") ||
+                q.contains("littering") || q.contains("basura") || q.contains("trespass") ||
+                q.contains("vandalism") || q.contains("stealing") || q.contains("nakaw") ||
+                q.contains("magnakaw") || q.contains("theft") || q.contains("gambling") ||
+                q.contains("drug test") || q.contains("mdtp") || q.contains("narcotics") ||
+                q.contains("alcohol") || q.contains("alak") || q.contains("drunkenness") ||
+                q.contains("haircut") || q.contains("gupit") || q.contains("buhok") ||
+                q.contains("hikaw") || q.contains("earrings") || q.contains("tattoo") ||
+                q.contains("cap") || q.contains("sombrero") || q.contains("lgbt") ||
+                q.contains("transgender") || q.contains("rights") || q.contains("karapatan")) {
+            return Intent.RULES_DISCIPLINE;
+        }
+
         // Campus Info / Directory / Guidelines
         if (q.contains("uniform") || q.contains("wash day") || q.contains("civilian") ||
                 q.contains("suot") || q.contains("damit") || q.contains("clinic") ||
@@ -366,9 +557,14 @@ public class LocalNanoAIEngine {
                 q.contains("permit") || q.contains("grade") || q.contains("grading") ||
                 q.contains("passing") || q.contains("singko") || q.contains("tres") ||
                 q.contains("inc") || q.contains("incomplete") || q.contains("deans list") ||
-                q.contains("dean's list") || q.contains("latin honor") || q.contains("cor") ||
+                q.contains("dean's list") || q.contains("latin honor") || q.contains("cum laude") ||
+                q.contains("magna") || q.contains("summa") || q.contains("cor") ||
                 q.contains("tor") || q.contains("transcript") || q.contains("clearance") ||
-                q.contains("shifting") || q.contains("dropping")) {
+                q.contains("shifting") || q.contains("dropping") || q.contains("mrr") ||
+                q.contains("residency") || q.contains("overload") || q.contains("tree planting") ||
+                q.contains("seedlings") || q.contains("refund") || q.contains("4.00") ||
+                q.contains("conditional") || q.contains("thesis") || q.contains("ojt") ||
+                q.contains("internship") || q.contains("retention")) {
             return Intent.ACADEMICS;
         }
 

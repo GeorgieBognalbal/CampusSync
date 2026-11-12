@@ -1048,13 +1048,17 @@ public class MainActivity extends Activity {
     // =========================
 
     private static final String[] SUGGESTIONS = {
+            "Ano parusa sa cheating sa exam?",
+            "Bawal na damit & wash days",
+            "Rules sa haircut ng lalaki",
             "May pasok ba bukas sa LSPU?",
             "Ano ang official grading system?",
             "Paano maayos ang INC grade?",
+            "Policy sa grade 4.00 conditional",
+            "Maximum residence rule (MRR)",
+            "Latin honors criteria (Cum Laude)",
+            "Mandatory tree planting requirement",
             "TDP scholarship requirements",
-            "Dress code rules & wash days",
-            "Programs offered in CCS",
-            "Emergency hotlines San Pablo",
             "Saan ang OSAS at Registrar?"
     };
 

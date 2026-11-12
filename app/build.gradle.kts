@@ -47,4 +47,5 @@ dependencies {
     implementation("androidx.work:work-runtime:2.10.2")
     implementation("androidx.core:core:1.13.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
 }

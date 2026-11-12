@@ -244,7 +244,12 @@ public class AnnouncementSyncWorker extends Worker {
         JSONArray dates = o.optJSONArray("important_dates");
         a.importantDates = dates != null ? dates.toString() : "[]";
 
-        JSONArray images = o.optJSONArray("image_urls");
+        Object rawImages = o.opt("image_urls");
+        JSONArray images = rawImages instanceof JSONArray ? (JSONArray) rawImages : null;
+        if (images == null && rawImages instanceof String) {
+            try { images = new JSONArray((String) rawImages); }
+            catch (JSONException ignored) { images = new JSONArray(); }
+        }
         a.imageUrls = images != null ? images.toString() : "[]";
         return a;
     }

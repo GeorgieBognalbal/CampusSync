@@ -25,9 +25,9 @@ SOURCES: list[dict[str, str]] = [
         "rss_url": "https://fetchrss.com/feed/1xR5OK99rF9f1xR75U75FGmY.rss",
     },
     {
-        "name": "Gov Sol",
-        "page_url": "https://www.facebook.com/SolAragonesOfficial",
-        "rss_url": "https://fetchrss.com/feed/1xR7AAGa58x81xR79j67y51W.rss",
+        "name": "TechAd",
+        "page_url": "https://www.facebook.com/techadspc",
+        "rss_url": "https://fetchrss.com/feed/1xRKO75lW06E1xRKaNGC07ne.rss",
     },
     {
         "name": "SPCC OSAS",
@@ -35,9 +35,9 @@ SOURCES: list[dict[str, str]] = [
         "rss_url": "https://fetchrss.com/feed/1xR7JK2fJ09b1xR7LkFv45GU.rss",
     },
     {
-        "name": "UDRRM",
-        "page_url": "https://www.facebook.com/profile.php?id=61578211806333",
-        "rss_url": "https://fetchrss.com/feed/1xR7EX92KEgF1xR7E582S8gc.rss",
+        "name": "OCTA",
+        "page_url": "https://www.facebook.com/CCSOCTA",
+        "rss_url": "https://fetchrss.com/feed/1xR7AAGa58x81xRKXW4ZpAoF.rss",
     },
 
 ]

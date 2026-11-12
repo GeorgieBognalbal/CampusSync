@@ -36,6 +36,7 @@ import androidx.lifecycle.Observer;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.example.campussync.ai.CampusKnowledgeBase;
 import com.example.campussync.ai.CloudAIAdapter;
 import com.example.campussync.ai.LocalNanoAIEngine;
 import com.example.campussync.data.local.AnnouncementDatabase;
@@ -118,6 +119,7 @@ public class MainActivity extends Activity {
 
         loadColors();
         cloudAdapter = new CloudAIAdapter(this);
+        CampusKnowledgeBase.loadHandbook(this);
 
         contentContainer = findViewById(R.id.contentContainer);
         contentScroll = findViewById(R.id.contentScroll);

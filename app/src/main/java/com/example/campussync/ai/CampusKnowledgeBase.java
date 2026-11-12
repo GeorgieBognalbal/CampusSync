@@ -981,4 +981,70 @@ public class CampusKnowledgeBase {
     public static List<KnowledgeEntry> getAllEntries() {
         return Collections.unmodifiableList(ENTRIES);
     }
+
+    // =========================================================================
+    // Full handbook text (assets/lspu_student_handbook.json), searched offline
+    // when none of the entries above match
+    // =========================================================================
+
+    public static final class HandbookSection {
+        public final String title;
+        public final String content;
+        public final String citation;
+
+        HandbookSection(String title, String content, String citation) {
+            this.title = title;
+            this.content = content;
+            this.citation = citation;
+        }
+    }
+
+    private static final List<HandbookSection> HANDBOOK = new ArrayList<>();
+
+    /** Reads the handbook file once. Safe to call more than once. */
+    public static synchronized void loadHandbook(android.content.Context context) {
+        if (!HANDBOOK.isEmpty() || context == null) return;
+        try (java.io.InputStream in = context.getAssets().open("lspu_student_handbook.json")) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) > 0) bytes.write(buffer, 0, n);
+
+            org.json.JSONObject root = new org.json.JSONObject(
+                    new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+            org.json.JSONArray sections = root.getJSONArray("sections");
+            for (int i = 0; i < sections.length(); i++) {
+                org.json.JSONObject s = sections.getJSONObject(i);
+                String content = s.optString("content", "").replace('�', '•').trim();
+                if (content.isEmpty()) continue;
+                String citation = joinCitation(
+                        beforeColon(s.optString("chapter")),
+                        beforeColon(s.optString("article")),
+                        beforeColon(s.optString("section")));
+                HANDBOOK.add(new HandbookSection(s.optString("title", "Student Handbook"), content, citation));
+            }
+        } catch (Exception e) {
+            android.util.Log.w("CampusKnowledgeBase", "Could not load the student handbook", e);
+        }
+    }
+
+    public static synchronized List<HandbookSection> getHandbookSections() {
+        return new ArrayList<>(HANDBOOK);
+    }
+
+    private static String beforeColon(String s) {
+        if (s == null) return "";
+        int colon = s.indexOf(':');
+        return (colon >= 0 ? s.substring(0, colon) : s).trim();
+    }
+
+    private static String joinCitation(String... parts) {
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (p == null || p.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(p);
+        }
+        return sb.toString();
+    }
 }

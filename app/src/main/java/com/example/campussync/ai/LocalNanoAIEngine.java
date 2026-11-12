@@ -344,8 +344,10 @@ public class LocalNanoAIEngine {
         }
 
         // Standard LSPU Query Check: Enforce campus domain boundary
+        // (a question that matches the handbook or a saved post still counts as campus-related)
         if (!isLspuRelated(userQuery, cachedPosts)) {
-            return buildOutOfScopeResult(userQuery);
+            NanoAIResult found = searchHandbookAndPosts(userQuery.toLowerCase(Locale.ROOT).trim(), cachedPosts);
+            return found != null ? found : buildOutOfScopeResult(userQuery);
         }
 
         String normalizedQuery = userQuery.toLowerCase(Locale.ROOT).trim();
@@ -523,8 +525,102 @@ public class LocalNanoAIEngine {
             );
         }
 
-        // --- 6. Fallback ---
+        // --- 6. Search the full handbook text and every saved post ---
+        NanoAIResult found = searchHandbookAndPosts(normalizedQuery, cachedPosts);
+        if (found != null) return found;
+
+        // --- 7. Fallback ---
         return fallbackResult(detectedIntent, normalizedQuery);
+    }
+
+    /**
+     * Offline search over the full handbook sections and the saved posts. Picks the one that
+     * shares the most words with the question, and only answers when enough of the question's
+     * words appear in it, so unrelated text is never quoted.
+     */
+    private NanoAIResult searchHandbookAndPosts(String query, List<AnnouncementEntity> posts) {
+        List<String> words = new ArrayList<>();
+        for (String t : extractTokens(query)) {
+            if (t.length() >= 3 && !words.contains(t)) words.add(t);
+        }
+        if (words.isEmpty()) return null;
+
+        CampusKnowledgeBase.HandbookSection bestSection = null;
+        AnnouncementEntity bestPost = null;
+        int bestHits = 0;
+        int bestTitleHits = -1;
+
+        for (CampusKnowledgeBase.HandbookSection section : CampusKnowledgeBase.getHandbookSections()) {
+            String title = section.title.toLowerCase(Locale.ROOT);
+            String text = title + " " + section.content.toLowerCase(Locale.ROOT);
+            int hits = countWordHits(text, words);
+            int titleHits = countWordHits(title, words);
+            if (hits > bestHits || (hits == bestHits && titleHits > bestTitleHits)) {
+                bestHits = hits;
+                bestTitleHits = titleHits;
+                bestSection = section;
+                bestPost = null;
+            }
+        }
+
+        if (posts != null) {
+            for (AnnouncementEntity post : posts) {
+                String text = ((post.message != null ? post.message : "") + " " +
+                        (post.keyTakeaway != null ? post.keyTakeaway : "")).toLowerCase(Locale.ROOT);
+                int hits = countWordHits(text, words);
+                boolean newer = bestPost != null && post.createdAt > bestPost.createdAt;
+                if (hits > bestHits || (hits == bestHits && hits > 0 && bestSection == null && newer)) {
+                    bestHits = hits;
+                    bestPost = post;
+                    bestSection = null;
+                }
+            }
+        }
+
+        boolean enough = words.size() == 1
+                ? bestHits == 1 && words.get(0).length() >= 5
+                : bestHits >= 2 && bestHits * 2 >= words.size();
+        if (!enough) return null;
+
+        if (bestPost != null) {
+            Intent intent = inferIntentFromPost(bestPost);
+            return new NanoAIResult(synthesizeAnswer(intent, bestPost, query), intent, 0.6f, bestPost, true);
+        }
+        if (bestSection == null) return null;
+
+        String answer = "From the **LSPU Student Handbook** (" + bestSection.citation + "), *"
+                + bestSection.title + "*:\n\n" + relevantLines(bestSection.content, words, 5)
+                + "\n\nAsk the OSAS or your college office if you need more details.";
+        return new NanoAIResult(answer, Intent.CAMPUS_INFO, 0.6f, null, true, bestSection.citation);
+    }
+
+    private static int countWordHits(String text, List<String> words) {
+        int hits = 0;
+        for (String w : words) {
+            if (matchesWord(text, w)) hits++;
+        }
+        return hits;
+    }
+
+    /** The lines of a handbook section that mention the question's words, in their original order. */
+    private static String relevantLines(String content, List<String> words, int max) {
+        String[] lines = content.split("\n");
+        List<Integer> scores = new ArrayList<>();
+        for (String line : lines) scores.add(countWordHits(line.toLowerCase(Locale.ROOT), words));
+
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < lines.length; i++) if (scores.get(i) > 0 && !lines[i].trim().isEmpty()) order.add(i);
+        order.sort((a, b) -> Integer.compare(scores.get(b), scores.get(a)));
+        List<Integer> keep = new ArrayList<>(order.subList(0, Math.min(max, order.size())));
+        Collections.sort(keep);
+
+        if (keep.isEmpty()) return shorten(content, 400);
+        StringBuilder sb = new StringBuilder();
+        for (int i : keep) {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(lines[i].trim());
+        }
+        return sb.toString();
     }
 
     public interface CloudFallbackProvider {

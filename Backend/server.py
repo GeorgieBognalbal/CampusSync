@@ -29,7 +29,9 @@ if not API_KEY:
         "CAMPUSSYNC_API_KEY is missing! Check your Backend/.env file."
     )
 
-PORT = int(os.environ.get("PORT", 5001))
+# 5000 matches the app, README, ngrok and the laptop service. (5001 here meant
+# "python server.py" started on a port the app never calls.)
+PORT = int(os.environ.get("PORT", 5000))
 
 app = Flask(__name__)
 

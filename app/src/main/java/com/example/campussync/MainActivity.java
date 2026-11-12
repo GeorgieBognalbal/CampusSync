@@ -464,6 +464,8 @@ public class MainActivity extends Activity {
         final int fgRes;
         final int bgRes;
         final String[] keywords;
+        /** One pre-built whole-word pattern per category (built once, not per post). */
+        final Pattern matcher;
 
         Category(String chipLabel, String tagLabel, int fgRes, int bgRes, String... keywords) {
             this.chipLabel = chipLabel;
@@ -471,6 +473,13 @@ public class MainActivity extends Activity {
             this.fgRes = fgRes;
             this.bgRes = bgRes;
             this.keywords = keywords;
+            StringBuilder alt = new StringBuilder();
+            for (String k : keywords) {
+                if (alt.length() > 0) alt.append('|');
+                alt.append(Pattern.quote(k));
+            }
+            this.matcher = keywords.length == 0 ? null
+                    : Pattern.compile("\\b(?:" + alt + ")(?:s|es)?\\b");
         }
 
         static Category of(AnnouncementEntity a) {
@@ -490,11 +499,7 @@ public class MainActivity extends Activity {
         static Category of(String message) {
             String m = message == null ? "" : message.toLowerCase(Locale.ROOT);
             for (Category c : new Category[]{SUSPENSION, EXAM, SCHOLARSHIP, EVENT}) {
-                for (String k : c.keywords) {
-                    if (Pattern.compile("\\b" + Pattern.quote(k) + "(s|es)?\\b").matcher(m).find()) {
-                        return c;
-                    }
-                }
+                if (c.matcher != null && c.matcher.matcher(m).find()) return c;
             }
             return GENERAL;
         }
@@ -775,27 +780,9 @@ public class MainActivity extends Activity {
 
         outer.addView(message, mp);
 
-        JSONArray imageUrls = safeImageArray(item.imageUrls);
-        if (imageUrls.length() > 0) {
-            HorizontalScrollView galleryScroll = new HorizontalScrollView(this);
-            galleryScroll.setHorizontalScrollBarEnabled(false);
-            LinearLayout gallery = row();
-            for (int imageIndex = 0; imageIndex < imageUrls.length(); imageIndex++) {
-                String imageUrl = imageUrls.optString(imageIndex, "");
-                if (imageUrl.isEmpty()) continue;
-                ImageView image = new ImageView(this);
-                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                image.setBackground(roundDrawable(PALE, 10));
-                LinearLayout.LayoutParams imageParams = params(260, 170);
-                imageParams.rightMargin = dp(8);
-                gallery.addView(image, imageParams);
-                Glide.with(this).load(imageUrl).placeholder(R.drawable.ic_empty)
-                        .error(R.drawable.ic_empty).centerCrop().into(image);
-            }
-            galleryScroll.addView(gallery);
-            LinearLayout.LayoutParams galleryParams = params(-1, 170);
-            galleryParams.bottomMargin = dp(12);
-            outer.addView(galleryScroll, galleryParams);
+        List<String> imageList = imageUrlsOf(item);
+        if (!imageList.isEmpty()) {
+            addPostImages(outer, imageList);
         }
 
         // The AI summary is shown first; the full post opens below it on tap
@@ -850,6 +837,119 @@ public class MainActivity extends Activity {
 
         addView(parent, outer, 0, 12);
         return outer;
+    }
+
+    // ---------- post images ----------
+
+    private List<String> imageUrlsOf(AnnouncementEntity item) {
+        JSONArray arr = safeImageArray(item.imageUrls);
+        List<String> urls = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            String u = arr.optString(i, "").trim();
+            if (!u.isEmpty()) urls.add(u);
+        }
+        return urls;
+    }
+
+    /**
+     * Shows a post's photos WITHOUT cropping them.
+     *
+     * Before, every photo was forced into a 260x170 box with CENTER_CROP, which cut
+     * off the top and bottom of portrait/square posters (often where the dates are).
+     * Now each image keeps its own shape (adjustViewBounds + fitCenter):
+     *  - one photo: full card width, its natural height (capped, tap to see all of it)
+     *  - several:   a swipeable row, each at the same height and its own width
+     * Tapping any photo opens it full screen.
+     */
+    private void addPostImages(LinearLayout outer, List<String> urls) {
+        if (urls.size() == 1) {
+            ImageView image = postImageView(urls.get(0));
+            image.setMaxHeight(dp(440));
+            LinearLayout.LayoutParams lp = params(-1, -2);
+            lp.bottomMargin = dp(12);
+            outer.addView(image, lp);
+            loadPostImage(image, urls.get(0), -1);
+            return;
+        }
+
+        HorizontalScrollView galleryScroll = new HorizontalScrollView(this);
+        galleryScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout gallery = row();
+        for (String url : urls) {
+            ImageView image = postImageView(url);
+            image.setMaxWidth(dp(280));
+            LinearLayout.LayoutParams ip = params(-2, 220);
+            ip.rightMargin = dp(8);
+            gallery.addView(image, ip);
+            loadPostImage(image, url, dp(220));
+        }
+        galleryScroll.addView(gallery);
+        outer.addView(galleryScroll, params(-1, -2));
+
+        TextView count = text("📷 " + urls.size() + " photos · swipe to see all", 11, MUTED, false);
+        LinearLayout.LayoutParams cp = params(-2, -2);
+        cp.topMargin = dp(4);
+        cp.bottomMargin = dp(12);
+        outer.addView(count, cp);
+    }
+
+    private ImageView postImageView(String url) {
+        ImageView image = new ImageView(this);
+        image.setAdjustViewBounds(true);                       // view takes the photo's shape
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);    // never crop
+        image.setBackground(roundDrawable(PALE, 12));
+        image.setClipToOutline(true);                          // actually round the corners
+        image.setContentDescription("Post photo, tap to view full screen");
+        image.setOnClickListener(v -> showFullImage(url));
+        return image;
+    }
+
+    /** @param height fixed row height for galleries, or -1 for a full-width single photo */
+    private void loadPostImage(ImageView image, String url, int height) {
+        // Sized placeholder so the space is reserved while loading (a plain color has
+        // no size, which made gallery items 0 px wide until the photo arrived).
+        GradientDrawable placeholder = new GradientDrawable();
+        placeholder.setColor(PALE);
+        placeholder.setCornerRadius(dp(12));
+        placeholder.setSize(height > 0 ? dp(165) : dp(320), height > 0 ? height : dp(200));
+
+        Glide.with(this)
+                .load(url)
+                .placeholder(placeholder)
+                .error(placeholder)
+                .fitCenter()
+                .into(image);
+    }
+
+    /** Full-screen photo viewer: black background, whole image visible, tap to close. */
+    private void showFullImage(String url) {
+        android.app.Dialog dialog = new android.app.Dialog(this,
+                android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        frame.setBackgroundColor(0xFF000000);
+
+        ImageView full = new ImageView(this);
+        full.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        full.setContentDescription("Full screen photo");
+        frame.addView(full, new android.widget.FrameLayout.LayoutParams(-1, -1));
+
+        TextView close = text("✕", 22, WHITE, true);
+        close.setPadding(dp(20), dp(16), dp(20), dp(16));
+        close.setContentDescription("Close");
+        android.widget.FrameLayout.LayoutParams clp =
+                new android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        clp.topMargin = dp(24);
+        frame.addView(close, clp);
+
+        View.OnClickListener dismiss = v -> dialog.dismiss();
+        frame.setOnClickListener(dismiss);
+        full.setOnClickListener(dismiss);
+        close.setOnClickListener(dismiss);
+
+        dialog.setContentView(frame);
+        dialog.show();
+        Glide.with(this).load(url).fitCenter().into(full);
     }
 
     private JSONArray safeImageArray(String json) {

@@ -17,7 +17,7 @@ SOURCES: list[dict[str, str]] = [
     {
         "name": "LSPU Official",
         "page_url": "https://www.facebook.com/LSPUOfficial",
-        "rss_url": "https://fetchrss.com/feed/1xR6PCARzFXO1xR6PiCqr9lC.rss",
+        "rss_url": "https://fetchrss.com/feed/1xRGwmCHwEeA1xRGwa6CV8mo.rss",
     },
     {
         "name": "Guidance Office",

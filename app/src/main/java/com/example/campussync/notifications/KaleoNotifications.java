@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat;
 import com.example.campussync.MainActivity;
 import com.example.campussync.R;
 import com.example.campussync.data.local.AnnouncementEntity;
+import com.example.campussync.util.MarkdownFormatter;
 
 import java.util.List;
 
@@ -103,11 +104,12 @@ public class KaleoNotifications {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
             String channelId = isSuspension ? CHANNEL_URGENT : CHANNEL_REGULAR;
+            String plainMessage = MarkdownFormatter.parse(post.message).text;
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_bell)
                     .setContentTitle(isSuspension ? "⚠️ " + post.pageName : post.pageName)
-                    .setContentText(post.message)
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(post.message))
+                    .setContentText(plainMessage)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(plainMessage))
                     .setPriority(isSuspension ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
                     .setContentIntent(pi)
                     .setAutoCancel(true);

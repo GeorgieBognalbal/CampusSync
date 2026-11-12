@@ -83,6 +83,8 @@ fi
 
 systemctl --user daemon-reload
 systemctl --user enable --now campussync-server.service campussync-ingest.timer
+# Pick up any changes to the service file (e.g. the log format) right away.
+systemctl --user restart campussync-server.service
 if [[ -n "$NGROK_DOMAIN" ]]; then
     systemctl --user enable --now campussync-ngrok.service
 fi

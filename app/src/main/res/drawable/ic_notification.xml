@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon: the Kaleo K + signal, single color (Android tints it) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="62" android:viewportHeight="62">
+    <group android:translateX="-24.85" android:translateY="-21.35">
+        <path android:pathData="M37,42 L37,78 M40,63 L57,46 M46,58 L60,78"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="9"
+            android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+        <path android:pathData="M56.6,34.58 A10,10 0 0,1 75.4,34.58 M54.12,29.68 A14.5,14.5 0 0,1 77.88,29.68"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.6" android:fillColor="#00000000" />
+        <path android:pathData="M60.8,38 a5.2,5.2 0 1,0 10.4,0 a5.2,5.2 0 1,0 -10.4,0 z"
+            android:fillColor="#FFFFFFFF" />
+    </group>
+</vector>
